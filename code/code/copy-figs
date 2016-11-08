@@ -1,0 +1,7 @@
+#!/bin/sh
+
+cp output/*.pdf ../writing/figures
+
+ldconfig
+
+echo "Copied all *.pdf files!"

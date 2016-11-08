@@ -1,0 +1,190 @@
+## Make sure you're working from [dropboxfolder]/code
+  source("settings.R")
+  source('selectinf/selectiveInference/R/funs.inf.R')
+  source('funs.R')
+  source('testfuns.R')
+  source('dualPathSvd2.R')
+  library(igraph)
+  library(RColorBrewer)
+  verbose = F
+
+  workingdir = "."
+  outputdir = "output/"
+
+## simulation settings #
+  maxsteps = 50 
+
+## generate some basic things #
+  # make adjacency matrix
+  myseed = 100
+  set.seed(myseed)
+  clustersize = 20#30
+  nclust = 3
+  corr = 0.05
+  corr.within = .5
+  block.cor.mat = matrix(c(corr.within,corr,corr,
+			   corr,corr.within,corr,
+			   corr,corr,corr.within), nrow=3)
+  mygraph = sample_sbm(clustersize*3, pref.matrix = block.cor.mat, block.sizes = rep(clustersize,3))
+  adjmat = get.adjacency(mygraph)
+  Dmat = getDmat.from.adjmat(adjmat)
+  beta0 = c(rep(0,clustersize), rep(1,clustersize), rep(3,clustersize))
+
+  sigma=0.15 # 0.1
+  myseed2=6#3
+  set.seed(myseed2)
+  y0 = beta0 + rnorm(clustersize*3,0,sigma)
+  f0 = dualpathSvd2(y0,Dmat,verbose=F, maxsteps = maxsteps)
+  ## save(f0,y0,sigma,beta0,Dmat,adjmat,mygraph,block.cor.mat,corr,nclust,
+  ##      clustersize,maxsteps,myseed,myseed2,file=file.path(outputdir,"graph-example-harder.Rdata"))
+
+## Load path information
+  ## load(file=file.path(outputdir,"graph-example-harder.Rdata"))
+  loc = 6
+  grouplist = list(1:30,31:60,61:90)
+  get.membership = function(myvertex){ sapply(grouplist, function(group) myvertex%in% group) } # function to obtain the group membership of any vertex
+  samegroup = function(vertexpair){ all(apply(sapply(vertexpair, get.membership),1,function(boolvec){if(boolvec[1]==boolvec[2]) {return(T)} else { return(F)}})) } # TODO: horrible readability but it works for now :)
+  edge.colors = rep("lightgrey",1000)
+  edges = get.edgelist(mygraph)
+ 
+  between.group.edges = which(!apply(edges,1, samegroup))
+  edge.colors[between.group.edges] = "black"
+#  col=rgb(0,0,seq(0.01,1,0.01))
+  
+  pcols = blues = rgb(0,0,c(0,1,3)/6+1/2)
+  colfunc <- colorRampPalette(c("white", "royalblue"))
+  pcols = colfunc(10)[c(1,4,10)]
+  lcol.within.groups = 'darkgrey'
+  lcol.btw.groups = 'black'
+  lcol.lastcut = 'black' #'red'
+  mar = c(1,2,2,1)
+  w=h=7
+
+#######################
+## plot the graph #####
+#######################
+
+   # Collect segment test pvals
+     model.info = getmodelinfo.graph(f0,y0, sigma, maxsteps, Dmat, stoptime=F)      
+     stop.time = 50
+     G = getGammat.naive(f0,y0,stop.time)$Gammat#getGammat.naive(f0,y0,mysteps[3])$Gammat
+     u = rep(0,nrow(G))
+
+    # Condition on stoprule (doesn't work, because it has to go too many steps)
+     ## consec=1
+     bic = getbic.graph(f0,y0,sigma,maxsteps,Dmat)
+     ## stop.time = which.rise(bic,consec)-1
+     ## G = getGammat.with.stoprule(obj=f0,y=y0,type='graph',consec=1,condition.step = stop.time+consec)
+ 
+    # Calculate p-value of first test and store it
+      steps.to.test = model.info$knots.primal[model.info$knots.primal<=stop.time]
+      steps.to.test = steps.to.test[steps.to.test!=1]
+      mystep = steps.to.test[1]
+
+      v = model.info$residuals[[mystep]]
+      v = -v
+      my.pval = signif(pval.fl1d(y0, G, v, sigma, u = u),3)
+      print(my.pval)
+
+      mysteps = c(1,47,48)
+
+      for(ii in 1:length(mysteps)){ #c(1,38:39,56:57)){
+        step = mysteps[ii]
+        ## pdf(file=file.path(outputdir,paste0("graph-example-", ii,".pdf")),width=w,height=h)
+        par(mar=mar)
+        print(step)
+        Dmat.curr = Dmat[-getB.from.actions(f0$action[1:step]),]
+        mygraph = graph_from_adjacency_matrix(getadjmat.from.Dmat(Dmat.curr), mode="undirected")
+#        plot(mygraph)
+
+        grouplist = list(1:clustersize, (clustersize+1):(2*clustersize),(2*clustersize+1):(3*clustersize))
+        get.membership = function(myvertex){ sapply(grouplist, function(group) myvertex%in% group) } # function to obtain the group membership of any vertex
+        samegroup = function(vertexpair){ all(apply(sapply(vertexpair, get.membership),1,function(boolvec){if(boolvec[1]==boolvec[2]) {return(T)} else { return(F)}})) } # TODO: horrible readability but it works for now :)
+
+        edge.colors = rep(lcol.within.groups,1000)
+        edges = get.edgelist(mygraph)
+        
+        between.group.edges = which(!apply(edges,1, samegroup))
+
+#        for(ii in 1:length(between.group.edges)){
+#        e1 = edges[between.group.edges[ii],1]
+#        e2 = edges[between.group.edges[ii],2]
+#        print(all.equal(which(get.membership(e1) | get.membership(e2)) , c(2,3))==T)
+#        }
+
+        edge.colors[between.group.edges] = lcol.btw.groups
+        if(step==47) edge.colors[tail(between.group.edges,1)] = lcol.lastcut
+        
+      # plot the graph
+        if(step==1){
+        set.seed(2) # maintaining same graph each time
+        init.layout = layout.fruchterman.reingold(mygraph)
+         }
+
+        plot(mygraph,#, main = "Initial graph", 
+          edge.color = edge.colors,
+          vertex.label = rep("",clustersize), #rep(c(0,1,3),each=30),
+          vertex.color = rep(pcols,each=clustersize),
+          layout = init.layout)
+        if(step==1){ mytitle = "Initial graph" } else { mytitle = paste("Step",step-1)}
+        title(main = mytitle,cex.main=2)
+        if(step==1){
+        text(0.1,1, "Group 1 \n (mean = 0)",cex=1.5)
+        text(-0.3,-.9, "Group 3 \n (mean = 3)",cex=1.5)  
+        text(-1.1,0.25,"Group 2 \n (mean = 1)",cex=1.5)
+
+        ## text(0.45,-0.8, "Group 1 \n (mean = 0)",cex=1.5)
+        ## text(0.7,0.7, "Group 3 \n (mean = 3)",cex=1.5)  
+        ## text(-1.1,0.2,"Group 2 \n (mean = 1)",cex=1.5)
+        }
+       if (step==48) {
+          text(-0.4, -0.6, sprintf("p-value = %0.3f", my.pval), cex=1.5)
+       }
+        ## graphics.off()
+      }
+        
+#       pch.dat= 16
+#       pcol.dat = "grey50"
+#       lcol.fit = "blue"
+#       lwd.fit = 2
+#       lty.fit1 = 1; lty.fit2= 2
+#       pcol.v = "cyan"
+#       pch.v = 17
+#       ylim = c(-1,3.5)
+#       #mix.ind = c(1:30,61:90,31:60)
+#       mix.ind = 1:90
+#       g1.text = "Group 1"
+#       g1.x = 15; g1.y = 0.3;
+#       g2.text = "Group 2"
+#       g2.x = 45; g2.y = 1.3;
+#       g3.text = "Group 3"
+#       g3.x = 75; g3.y = 3.3;
+#       lcol.hline='lightgrey'
+#       lcol.vline = 'lightgrey'
+#       lty.vline = 2
+#       x.pval = 60; y.pval = 2.2;
+#       
+#       ii=4
+#      pdf(file=file.path(outputdir,paste0("graph-example-", ii,".pdf")),width=6,height=6)
+#       plot(y0[mix.ind], pch = pch.dat, col = pcol.dat, ylim = ylim,axes=F)
+#       axis(1);axis(2);
+#       lines(f0$beta[mix.ind,40], col = lcol.fit, lwd = lwd.fit, lty = lty.fit1)
+#       lines(f0$beta[mix.ind,39], col = lcol.fit, lwd = lwd.fit, lty = lty.fit2)
+#       points(v[mix.ind], col = pcol.v, pch = pch.v)
+#       text(g1.text, x = g1.x, y = g1.y)
+#        text(g2.text, x = g2.x, y = g2.y)
+#        text(g3.text, x = g3.x, y = g3.y)
+#        abline(h = 0, col = lcol.hline)
+#        abline(v = 60, col = lcol.vline, lty = lty.vline)
+#        
+#       text(paste("Graph segment test \n p-value =", my.pval), x = x.pval, y = y.pval)
+#      
+#       legend("topleft", pch = c(pch.dat,pch.v, NA, NA),
+#                         lwd = c(NA,NA,lwd.fit, lwd.fit),
+#                         lty = c(NA,NA,lty.fit2, lty.fit1),
+#                         col = c(pcol.dat, pcol.v, lcol.fit, lcol.fit),
+#                         legend = c("Data", "Segment test contrast", "Estimate at Step 38", "Estimate at Step 37"))  
+#      graphics.off()      
+#      
+
+#dev.off()

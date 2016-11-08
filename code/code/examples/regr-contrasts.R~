@@ -1,0 +1,62 @@
+## MAKE sure you're working from [dropboxfolder]/code
+  source("settings.R")
+  source('selectinf/selectiveInference/R/funs.inf.R')
+  source('funs.R')
+  source('dualPathSvd2.R')
+  library(genlasso)
+  library(Matrix)
+  library(RColorBrewer)
+  load(file="examples/stockData.RData")
+#  matplot(tricky_prices[,30],type='o',pch=sapply(1:30,toString))
+
+# Format data and response
+  center = function(vec){
+    as.numeric(scale(vec, center=TRUE,scale=FALSE))
+  }  
+  log.serial.transform = function(vec){
+    ratios =  vec[2:length(vec)] / vec[1:(length(vec)-1)]
+    logratios = log(ratios)
+    return(logratios)
+  }  
+  X.uncentered = tricky_prices[,c(1,2,3)]#c(1,2,3,4,5)
+  matplot(X.uncentered)
+  X = apply(X.uncentered,2,log.serial.transform)
+  X = apply(X,2,center)
+  TT = nrow(X)
+  J = ncol(X)
+
+  ## This setting with any noise detects a spurious cut
+  beta0 = c(rep(c(-10,10,-10),each=TT/3),-10,-10,
+            rep(c(-5,5),each=TT/2),5,
+            ## rep(c(10,10,10),each=TT))   #
+            rep(10,each=TT))
+  plot(beta0,type='p')
+  abline(v=TT*(0:4))
+
+  X.augmented = do.call(cbind, lapply(1:ncol(X), function(icol) diag(X[,icol])))
+  mn = X.augmented %*% beta0
+
+#########################
+## Run and save path  ###
+#########################
+  ## isigma = 3           #
+ # sigma = c(0.001,0.005,0.01,0.02,0.05)[isigma]
+  sigma=0.01
+  maxsteps=12
+
+  seed = 1#0
+  set.seed(seed) #
+  y = mn + rnorm(TT,0,sigma)
+  el.net.penalty = 0.001^2#0.0001
+  X.tilde = rbind(X.augmented,diag(rep(sqrt(el.net.penalty), ncol(X.augmented)) ))
+  y.tilde = c(y,rep(0,ncol(X.augmented)))
+  
+  D0 = makeDmat(TT,order=0)
+  D.orig = do.call(bdiag,lapply(1:J,function(jj) D0))
+  ginvX.tilde = ginv(X.tilde)
+  ginvX.orig  = ginv(X)
+  D.tilde = as.matrix(D.orig %*% ginvX.tilde)
+  do.declutter = T
+  
+# Fit path
+  f0 = dualpathSvd2(y.tilde, D.tilde, maxsteps=maxsteps,verbose=T)

@@ -1,0 +1,49 @@
+source('funs.R')
+source('testfuns.R')
+library(genlasso)
+
+
+## Simulations settings 
+lev1=0
+lev2=0
+maxsteps=1
+n  = 60
+sigma=1
+mysim = function(lev1, lev2){
+    beta0 = rep(c(lev1,lev2),each=n/2)
+    y0    = beta0 + rnorm(n, 0,sigma)
+    D = makeDmat(n, ord=0)
+    f0    = genlasso(y0,D=D,maxsteps=maxsteps,approx=T)
+    return(f0$pathobj$B)
+}
+
+## Run simulations
+props = rep(NA,3)
+nsim = 10000
+lev2s = c(0,1,2)
+allsplits = matrix(NA,nrow=nsim,ncol=length(lev2s))
+for(lev2 in lev2s){
+    splits = replicate(nsim, mysim(0,lev2))
+    ilev2 = which(lev2==lev2s)
+    allsplits[,ilev2] = splits
+}
+
+## Collect the proportions
+props = props.oneoff = c()
+for(lev2 in lev2s){
+    ilev2 = which(lev2 == lev2s)
+    props[ilev2] = sum(allsplits[,ilev2] == n/2)/nsim
+    props.oneoff[ilev2] = sum(allsplits[,ilev2] %in% c(n/2-1, n/2+1))/nsim
+}
+names(props.oneoff) = names(props) = paste("gap=",lev2s)
+
+## See proportions
+print(props)
+print(props.oneoff)
+
+## Calculate proportions
+source("dualPathSvd2.R")
+numsteps=1
+getprops(0,1,1000,60,sigma=1)
+
+    

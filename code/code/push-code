@@ -1,0 +1,20 @@
+# Umbrella approach (scp doesn't allow exclusion)
+#scp -r shyun@hydra1.stat.cmu.edu:~/genlassoinf/
+
+# Pushes simulation-related code to Justin's hydra file server
+for HYDRADIR in shyun@hydra1.stat.cmu.edu shyun@hydra2.stat.cmu.edu
+do
+rsync -av \
+--exclude 'output/*' \
+--exclude 'examples/data/*' \
+--exclude 'maxcode*' \
+--exclude 'maxoutput*' \
+--exclude="settings.R"  \
+--exclude=".git" \
+--exclude="tempoutput" \
+--exclude="selectinf" \
+--exclude="polypath" \
+--exclude="push-code" \
+--exclude="copy-figs" \
+. $HYDRADIR:~/genlassoinf/A
+done

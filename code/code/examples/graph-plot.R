@@ -1,0 +1,326 @@
+## Make sure you're working from [dropboxfolder]/code
+  source("settings.R")
+  source('selectinf/selectiveInference/R/funs.inf.R')
+  source('funs.R')
+  source('examples/testfuns.R')
+  source('dualPathSvd2.R')
+  library(igraph)
+  library(RColorBrewer)
+  verbose = F
+  library(RColorBrewer)
+
+# generate some basic things
+  set.seed(100)
+  clustersize = 10
+  nclust = 3
+  corr = 0.025
+  block.cor.mat = matrix(c(1,corr,corr,
+                           corr,1,corr,
+                           corr,corr,1), nrow=3)
+  mygraph = sample_sbm(clustersize*3, pref.matrix = block.cor.mat, block.sizes = rep(clustersize,3))
+  
+# make D matrix from the adjacency matrix
+  adjmat = get.adjacency(mygraph)
+  D = getDmat.from.adjmat(adjmat)
+
+
+#################################
+# Calculate conditional powers ##
+#################################
+
+  load(file = file.path(outputdir, "sbm-small-March23.Rdata"))
+
+# Properly adjust for multiple testing per replicate
+  verdictmat = array(NA,dim=dim(pmat))
+  nsim = dim(verdictmat)[1]
+  for(igrain in 1:ngrain){
+    mypmat     = pmat[,igrain,]
+    mystoptime = stoptimemat[,igrain,]
+    myverdict  = array(NA, dim=dim(mypmat))
+    
+    for(isim in 1:nsim){
+      this.sim.result   = mypmat[isim,]
+      this.sim.threshold = 0.05/sum(!is.na(this.sim.result))
+      this.sim.verdicts = (this.sim.result <= this.sim.threshold)
+      myverdict[isim,] = this.sim.verdicts
+    }
+    verdictmat[,igrain,] = myverdict
+  }
+
+  getpow   = function(verdict.vec){ sum(verdict.vec, na.rm=T) / sum(!is.na(verdict.vec))}
+  getdenom = function(verdict.vec){ sum(!is.na(verdict.vec))}
+  powmat    = matrix(nrow = ngrain, ncol = 6)
+  denom.mat = matrix(nrow = ngrain, ncol = 6)
+  for(loc in c(1:6)){
+    for(igrain in 1:ngrain){
+      powmat[igrain,loc]    = getpow(verdictmat[,igrain,loc])
+      denom.mat[igrain,loc] = getdenom(verdictmat[,igrain,loc])
+    }
+  }
+
+######################################
+# Also calculate some oracle powers ##
+######################################
+# simulation settings
+  nsim = 10000
+  ngrain = 10
+  sigmalist = seq(from = 0.1, to = 5, length = ngrain)
+  maxsteps = 30
+  clustersize = 10
+  beta0 = c(rep(0,clustersize), rep(1,clustersize), rep(3,clustersize))
+
+# get ready to store things
+  verdicts.oracle = array(NA, dim = c(ngrain,nsim,6))
+
+  factors = factor(beta0)
+  unique.factors = levels(factor(beta0))
+  ind.1 = which(factors == unique.factors[1])
+  ind.2 = which(factors == unique.factors[2])
+  ind.3 = which(factors == unique.factors[3])
+   
+  ind.list = list( list(ind.1,ind.2),
+                    list(ind.2,ind.3),
+                    list(ind.3,ind.1),
+                    list(ind.1, c(ind.2,ind.3)),
+                    list(ind.2, c(ind.1,ind.3)),
+                    list(ind.3, c(ind.1,ind.2))
+                  )
+  
+# main loop
+  for(igrain in 1:ngrain){
+  print(igrain)
+    sigma = sigmalist[igrain]
+    for(isim in 1:nsim){
+    # generate data
+      y0 = beta0 + rnorm(clustersize*3,0,sigma)
+    # Conduct oracle tests  
+      for(jj in 1:6){
+        i1 = (ind.list[[jj]])[[1]] 
+        i2 =  (ind.list[[jj]])[[2]]
+        dif = abs(mean(y0[i1])  - 
+                  mean(y0[i2]) )
+        lvl = 0.05/1
+        n1 = length(i1); n2 = length(i2);
+        z_crit = qnorm(1-lvl , sd = sigma*sqrt(1/n1 + 1/n2))
+        verdicts.oracle[igrain,isim,jj] = dif > z_crit
+      }
+    }
+  }
+             
+  powmat.oracle    = matrix(nrow = ngrain, ncol = 6)
+  for(loc in c(1:6)){
+    for(igrain in 1:ngrain){
+      powmat.oracle[igrain,loc] = getpow(verdicts.oracle[igrain,,loc])
+    }
+  }
+  powmat.oracle
+
+##########################################
+##########################################
+######## Main plot #######################
+##########################################
+##########################################
+
+
+#load(file = file.path(outputdir, "sbm-small.Rdata"))
+###############################
+### Plot of initial graph #####
+###############################
+  w=h=5
+  mytitle = "Initial Graph"
+  pdf(file.path(outputdir,"graph-powers-diagram.pdf"),width=w,height=h)
+    grouplist = list(1:10,11:20,21:30)
+    get.membership = function(myvertex){ sapply(grouplist, function(group) myvertex%in% group) } # function to obtain the group membership of any vertex
+    samegroup = function(vertexpair){ all(apply(sapply(vertexpair, get.membership),1,function(boolvec){if(boolvec[1]==boolvec[2]) {return(T)} else { return(F)}})) } # TODO: horrible readability but it works for now :)
+    edge.colors = rep("lightgrey",1000)
+    edges = get.edgelist(mygraph)
+    
+    between.group.edges = which(!apply(edges,1, samegroup))
+    edge.colors[between.group.edges] = "black"
+    
+  # plot the graph
+    set.seed(4) # maintaining same graph each time
+    plot(mygraph, main = "", 
+      edge.color = edge.colors,
+      vertex.label = rep(c(0,1,3),each=10),
+      vertex.color = rep(c(1:3),each=10),
+      vertex.size = rep(18,30))
+    
+    title(main = mytitle,cex.main=1.2)
+
+  # Manually input the text location as the scale changes!
+    text(0.5,-0.8, "Group 1 \n (Node value = 0)")
+    text(0.8,0.6, "Group 2 \n (Node value = 1)")  
+    text(-1,0.2,"Group 3 \n (Node value = 3)")
+  graphics.off()
+      
+      
+      
+###### Middle plot (p-value distributions for different noise levels)
+#  plot(NULL,xlim=c(0,1),ylim=c(0,100),ylab = "Density Estimate", xlab = "p-values",axes=F)
+#  title(main= bquote(bold(p-value~distributions~by~sigma)))
+#  mycols = brewer.pal(4,"Set2")
+#  unif.p = runif(10000,0,1)
+#  pcols.pvals = brewer.pal(4,"Set2")
+#  
+#  for(ii in 1:3){ # noise level
+#    if(ii!=1) par(new=T) 
+#    noise.i = c(3,5,8)[ii]
+#    this.noise.pvals = pmat[,noise.i,loc]
+#    this.noise.pvals = this.noise.pvals[!is.na(this.noise.pvals)]
+#    #lines(density(this.noise.pvals+abs(rnorm(length(this.noise.pvals),0,0.0001)),bw="bcv",na.rm=T,from=0,to=1),col=mycols[ii],lwd=2)
+#        qqplot(y = this.noise.pvals,
+#               x = unif.p,
+#               axes=F, xlab="", ylab="", col = pcols.pvals[ii])
+#  }
+#  axis(2);axis(1)
+#  mtext("Observed",1,padj=4)
+#  mtext("Expected",2,padj=-4)
+#  graphics.off()    
+
+#  
+  
+    
+
+#  mynoise = round(sigmalist[c(1,3,5,8)],2)
+#  mylegend = c(as.expression(bquote(sigma==.(mynoise[1]))),  
+#               as.expression(bquote(sigma==.(mynoise[2]))),  
+#               as.expression(bquote(sigma==.(mynoise[3]))),
+#               as.expression(bquote(sigma == .(mynoise[4]))))
+#  legend("topright", legend = mylegend, col=mycols, lty=rep(1,3))
+#  axis(1);axis(2)
+
+
+  #################################################################
+  ### Right plot (powers over a range of noise levels,         ####
+  ###    for severing a specific two clusters 1-10 and 11-20)  ####
+  #################################################################
+  w=8;h=6
+  pdf(file.path(outputdir,"graph-powers-conditpowers.pdf"),width=w,height=h)
+    loc1=1;loc2=6
+    lcol.loc1 = "black"
+    lcol.loc2 = "blue"
+    lwd.lcol1 = lwd.lcol2 = 2
+    lty.oracle = 2
+    xlim = c(0,8)
+    
+    # Conditional powers
+      plot(powmat[,loc1]~sigmalist, type = 'l', ylab = 'powers', xlab = bquote(sigma), 
+           lwd = lwd.lcol1, axes=F, col = lcol.loc1, xlim = xlim)
+      lines(powmat[,loc2]~sigmalist, lwd = lwd.lcol2, col = lcol.loc2)
+    # Oracle powers
+      lines(powmat.oracle[,loc1]~sigmalist, col = lcol.loc1, lwd = lwd.lcol1, lty = lty.oracle)
+      lines(powmat.oracle[,loc2]~sigmalist, col = lcol.loc2, lwd = lwd.lcol2, lty = lty.oracle)
+  
+      axis(1,at=seq(0,5,by=1),labels=seq(0,5,by=1));axis(2)  
+      legendtext1        = paste(Map(paste, rep("Group",2), pairindlist[[loc1]]), collapse = " vs. ")
+      legendtext1.oracle = "z-test (oracle)"#paste(Map(paste, rep("Group",2), pairindlist[[loc1]]), collapse = " vs. ")
+      legendtext2        = paste(Map(paste, c("Groups","Group"), pairindlist[[loc2]]), collapse = " vs. ")
+      legendtext2.oracle = "z-test (oracle)"#paste(Map(paste, c("Groups","Group"), pairindlist[[loc2]]), collapse = " vs. ")
+      legendtext = c(legendtext1,legendtext1.oracle,
+                     legendtext2,legendtext2.oracle)
+      legend("topright", legend = legendtext, col = c("black", "black","blue","blue"), lty=c(1,2,1,2), lwd=c(2,2,2,2),inset=.05)
+      title(main = "Conditional Powers\n at true graph partitions")
+  
+  graphics.off()
+
+
+  ##########################
+  ### QQ plot ,         ####
+  ##########################
+  w=5;h=5
+  loc1=1;loc2=6
+  lcol.loc1 = "black"
+  lcol.loc2 = "blue"
+  lwd.lcol1 = lwd.lcol2 = 2
+  lty.oracle = 2
+  xlim = c(0,8)
+  inds = c(2,4,6,8)
+  cols = brewer.pal(4,"Set1")
+  sigmas = rev(round(sigmalist[inds],2))
+  pch=16
+  title1        = paste(Map(paste, rep("Group",2), pairindlist[[loc1]]), collapse = " vs. ")
+  title2        = paste(Map(paste, c("Groups","Group"), pairindlist[[loc2]]), collapse = " vs. ")
+  titles = list(title1,title2)
+  
+  for(iloc in 1:2){
+    loc = c(loc1,loc2)[iloc]
+    pvals.loc = lapply(inds, function(igrain) pmat[,igrain,loc])
+    pdf(file.path(outputdir,paste0("graph-qqplot-loc-",loc,".pdf")),width=w,height=h)    
+    for(ii in rev(1:length(pvals.loc))){  
+      if(ii != length(pvals.loc) )par(new=T)
+      mypvals = pvals.loc[[ii]][!is.na(pvals.loc[[ii]])]
+      unifs = runif(length(mypvals),0,1)
+      print(length(mypvals))
+#      qqplot(x=unif.p, y=pvals.loc[[ii]],col=cols[ii],pch=pch, axes=F, xlab="", ylab="",ylim=c(0,1))
+      a = qqplot(x=unif.p, y=pvals.loc[[ii]],plot.it=FALSE)
+      myfun = (if(ii==1)plot else points)
+      myfun(x=a$y, y=a$x, col=cols[ii],pch=pch, axes=F, xlab="", ylab="",ylim=c(0,1))
+    }
+    axis(2);axis(1)
+    mtext("Observed",1,padj=4)
+    mtext("Expected",2,padj=-4)
+    title(main = titles[iloc])
+    legend("topleft", col=rev(cols), pch=rep(pch,2), legend = sapply(c(bquote(sigma == .(sigmas[1])), 
+             bquote(sigma == .(sigmas[2])),
+             bquote(sigma == .(sigmas[3])),
+             bquote(sigma == .(sigmas[4]))), as.expression))
+    abline(0,1,col='lightgrey')
+    graphics.off()
+  }
+      
+
+
+#### Examining two cases of the graph fused lasso not acting exactly like the fused lasso (_maybe_ put it in the paper!)
+##  set.seed(2) # creates the pathological case, with two connections in the larger gap and one connection in the small gap
+#  set.seed(11) # typical (expected) case
+#  nclust = 3
+#  corr = 0.01
+#  block.cor.mat = matrix(c(1,corr,corr,
+#                           corr,1,corr,
+#                           corr,corr,1), nrow=3)
+#  mygraph = sample_sbm(clustersize*3, pref.matrix = block.cor.mat, block.sizes = rep(clustersize,3))
+#  plot(mygraph)
+#  maxsteps=20
+#    
+## make D matrix from the adjacency matrix
+#  adjmat = get.adjacency(mygraph)
+#  Dmat.curr = Dmat = getDmat.from.adjmat(adjmat)
+#  
+## Generate data and fit path
+#  sigma = .1
+#  beta0 = c(rep(0,clustersize), rep(1,clustersize), rep(3,clustersize))
+#  y0 = beta0 + rnorm(clustersize*3,0,sigma)
+#  f0 = dualpathSvd2(y0,Dmat,verbose=F, maxsteps = maxsteps)
+
+## Draw plot!
+#  par(mfrow=c(7,3))
+#  for(mystep in 1:7){
+#    # Plot the recovered signal
+#    plot(y0, main = paste0("step",step))
+#    lines(f0$beta[,mystep], col = 'blue')
+#    # Plot the graph
+#    G0 = getGammat(f0, y0, mystep)
+#    plot(mygraph)
+#    image(Dmat.curr)
+#    Dmat.curr = Dmat[-getB.from.actions(f0$action[1:mystep]),]
+#    mygraph = graph_from_adjacency_matrix(getadjmat.from.Dmat(Dmat.curr), mode="undirected")
+##    plot(mygraph)
+#  }
+#  
+  
+#  
+#  
+#### Test the first braek at progressively further steps of the algorithm!
+#  vsegment = c(rep(-1/3,clustersize),rep(1/3,clustersize),rep(0,clustersize))
+#  mins = pvals = rep(NA, maxsteps)
+#  for(mystep in 1:maxsteps){
+#    G0 = getGammat(f0, y0, mystep)
+#    # Check minimum G^Ty values
+#      mins[mystep] = c(min(G0%*%y0) )
+#    # conduct segment test
+#      pvals[mystep] = pseg = pval.fl1d(y0, G0, vsegment, sigma, approxtype="rob")
+#  }
+#  print(mins)
+#  print(pvals)
+
