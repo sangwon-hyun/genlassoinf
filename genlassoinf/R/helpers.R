@@ -473,7 +473,8 @@ graph2D_Dmat = function(m){
   return(D)
 }
 
-# general function that makes various D matrices
+##' general function that makes various D matrices
+##' @export
 makeDmat = function(m, type = c("tf","2d","graph"), order=0){
 
     type = match.arg(type)
@@ -718,6 +719,7 @@ see.big.objs <- function(szcut=10, which.envir = c("global", "local"), verbose=F
 
 ##' Function to take mypath$action from a path object and returns a list of the
 ##' states after each step in algorithm, starting with NA as the first state.
+##' @export
 get.states = function(action.obj, path.obj=NULL){
 
     ## Extract action from pathobj
@@ -893,6 +895,7 @@ getbic.regression = function(y0.orig, f0, sigma, maxsteps,X.orig, ginvX.orig, D.
 ##' Calculates various model-related quantities for _any_ D for the signal
 ##' approximator case (IC, penalty, RSS, residual) \code{df.fun()} is a function that
 ##' returns the degrees of freedom of fit of %yhat = Proj_{null(D_B)} y%
+##' @export
 get.modelinfo = function(f0, y0, sigma, maxsteps, D, stoprule = c('bic','ebic', 'aic'), ebic.fac=.5, verbose=F){
 
   stoprule = match.arg(stoprule)
@@ -1067,7 +1070,8 @@ getorder = function(bic){
 }
 
 
-## Locates first point of .(consec) rises in IC path
+##' Locates first point of .(consec) rises in IC path
+##' @export
 which.rise = function(icvec, consec = 2, direction=c("forward","backward")){
 
   direction = match.arg(direction)

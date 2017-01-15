@@ -14,7 +14,6 @@ is.path <- function(someobj){ inherits(someobj, "path") }
 print <- function(x,...) UseMethod("print")
 
 ##' Plotting function for "sim" class
-##' @import hexbin
 print.path = function(mypath){
     ## Print the directions and signs
     cat("The selection sequence is: ", fill=TRUE)

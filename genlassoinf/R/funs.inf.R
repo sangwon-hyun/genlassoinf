@@ -5,7 +5,8 @@ pval.fl1d <- function(y, G, dik, sigma, approx=T, threshold=T, approxtype = c("g
     stop("you're using pval.fl1d! Swtich to poly.pval")
 }
 
-# Main p-value function
+##' Main p-value function
+##' @export
 poly.pval <- function(y, G, u, v, sigma, bits=NULL) {
   z = sum(v*y)
   vv = sum(v^2)

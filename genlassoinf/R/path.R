@@ -20,6 +20,7 @@
 ##' @param ctol Tolerance for gmat&%y ~= c; defaults to 1e-7
 ##' @param btol Tolerance for leaving times, precision issue, defaults to 1e-10
 ##' @param cdtol Tolerance for cdtol; defaults to 1e-4
+##' @export
 
 dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
                         rtol=1e-7, btol=1e-7, verbose=FALSE, object=NULL,
@@ -415,3 +416,4 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
     class(mypath) <- "path"
     return(mypath)
 }
+

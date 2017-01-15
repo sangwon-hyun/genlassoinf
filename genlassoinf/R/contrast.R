@@ -24,6 +24,7 @@
 ##' by use of null space projections
 ##' @param test.knot is the smaller model (knot set)
 ##' @param adj.knot is the larger model (knot set); \code{adj.knot} must be a superset of \code{test.knot}
+##' @export
 make.v.tf.fp = function(test.knot, adj.knot, test.knot.sign, D){# fp for first principles
     ## B1,B2 is smaller/larger model (knot sets)
     ## rr^T is pB1 - pB2, 

@@ -1,6 +1,7 @@
 ##' Gets k'th Gammat matrix from path object \code{obj}. Note! If you're being
 ##' naive, then do whatever you want with condition.step.  Note, if you're using
 ##' stop times, condition.step should be the (stoptime + 2)
+##' @export
 getGammat.naive = function(obj, y, condition.step=NULL){
 
     n = length(y)
@@ -16,6 +17,7 @@ getGammat.naive = function(obj, y, condition.step=NULL){
 
 ##' Produces the rows to add to Gammat matrix for IC-based stopping rule in
 ##' generalized lasso signal approximation problem.
+##' @export
 getGammat.stoprule = function(obj, y, condition.step, stoprule, sigma, consec,
                               maxsteps, ebic.fac= 0.5, D, verbose=F){
 
@@ -80,6 +82,7 @@ getGammat.stoprule = function(obj, y, condition.step, stoprule, sigma, consec,
 ##' Produces the rows to add to Gammat matrix, in the regression case requires
 ##' X.orig, ginvX.orig and D.orig which are from the pre-elastic-net regression
 ##' problem
+##' @export
 getGammat.stoprule.regression = function(obj, y, condition.step, stoprule,
                                            sigma, consec, maxsteps,  X.orig,
                                            ginvX.orig=NULL, D.orig,y0.orig){
@@ -212,6 +215,7 @@ getGammat.stoprule.regression = function(obj, y, condition.step, stoprule,
 ##' Function that takes the same arguments as the getGammat.naive(), and some
 ##' extra arguments to extract the conditioning for the stopping rule.  Returns
 ##' the final Gamma matrix and u vector with stopping rules incorporated.
+##' @export
 getGammat.with.stoprule = function(obj, y, condition.step,# usage = c("fl1d", "dualpathSvd"),
                                    stoprule, sigma, maxsteps, consec,
                                    ebic.fac= 0.5,
