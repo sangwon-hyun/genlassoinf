@@ -12,12 +12,12 @@ beta0 = rep(c(lev1,lev2),each=n/2)
 y0    = beta0 + rnorm(n, 0,sigma)
 f0    = dualpathSvd2(y0, D=D, maxsteps, approx=T)
 
-## Get naive poyhedron
+## Get naive poyhedron (fixed stop time of 1)
 Gobj    = getGammat.naive(obj = f0, y = y0, condition.step = stoptime+consec)
 G = Gobj$Gammat
 u = Gobj$u
 
-## From contrast and segment test p-value
+## Form contrast and segment test p-value
 states = get.states(f0$action)
 stoptime = 1
 final.model = states[[stoptime+1]]
