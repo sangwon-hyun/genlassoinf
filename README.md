@@ -6,6 +6,10 @@ On command line (UNIX), use
 ~~~~
 R CMD INSTALL genlassoinf
 ~~~~
+or in R,
+~~~~
+devtools::install_github("robohyun66/genlassoinf", subdir="genlassoinf")
+~~~~
 
 ## Tests
 All tests/examples are shown in /examples
