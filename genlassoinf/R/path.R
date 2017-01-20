@@ -85,7 +85,7 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
     
 
     # add rows to Gamma
-    tDinv = ginv(as.matrix(t(D)))
+    tDinv = MASS::ginv(as.matrix(t(D)))
 
     # rows to add, for first hitting time (no need for sign-eligibility--just add all sign pairs)
     #Gammat = diag(Sign(uhat)  %*% tDinv)  
@@ -152,7 +152,7 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
         sv = svdsolve(t(D1),cbind(y,Ds),rtol) #sv = svdsolve(t(D1),cbind(y,Ds,In),rtol)
         a = as.numeric(sv$x[,1])  # formerly a = as.numeric(D3 %*% y)
         b = as.numeric(sv$x[,2])
-        D3 = ginv(as.matrix(t(D1)))# formerly as.matrix(sv$x[,3:(n+2)]) 
+        D3 = MASS::ginv(as.matrix(t(D1)))# formerly as.matrix(sv$x[,3:(n+2)]) 
                                    # meant to be pseudoinverse of t(D[-I,])
         
         q = sv$q
