@@ -6,7 +6,7 @@ checksame <- function(y0,Gamma1,Gamma2,noise=1){
   return(all( Gamma1 %*% y0noisy >= 0 ) == all( Gamma2 %*% y0noisy >= 0 ))
 } 
 
-# Check correctness of polyhedron:
+##' Check correctness of polyhedron:
 polyhedron.checks.out <- function(y0,G,u, throw.error=F){
   all.nonneg = all((G%*%y0 >= u))
   if(all.nonneg){ 
