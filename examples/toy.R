@@ -7,7 +7,7 @@ lev2 = 3
 consec=2
 D = dual1d_Dmat(length(y0))
 
-# Generate data + path
+## Generate data + path
 beta0 = rep(c(lev1,lev2),each=n/2)
 y0    = beta0 + rnorm(n, 0,sigma)
 f0    = dualpathSvd2(y0, D=D, maxsteps, approx=T)

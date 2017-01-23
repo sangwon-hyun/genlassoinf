@@ -896,7 +896,7 @@ getbic.regression = function(y0.orig, f0, sigma, maxsteps,X.orig, ginvX.orig, D.
 ##' approximator case (IC, penalty, RSS, residual) \code{df.fun()} is a function that
 ##' returns the degrees of freedom of fit of %yhat = Proj_{null(D_B)} y%
 ##' @export
-get.modelinfo = function(f0, y0, sigma, maxsteps, D, stoprule = c('bic','ebic', 'aic'), ebic.fac=.5, verbose=F){
+get.modelinfo = function(f0, y0, sigma, maxsteps, D, stoprule = c('bic','ebic', 'aic'), ebic.fac=.5, verbose=F, consec=2){
 
   stoprule = match.arg(stoprule)
   
@@ -914,7 +914,7 @@ get.modelinfo = function(f0, y0, sigma, maxsteps, D, stoprule = c('bic','ebic', 
     if(verbose){
       cat('step', ii, '\n')
     }
-    # Method 1: Form proj null(D_{-B}) by orth proj onto row(D_{-B}) = col(t(D_{-B})) ~= tD
+    ## Method 1: Form proj null(D_{-B}) by orth proj onto row(D_{-B}) = col(t(D_{-B})) ~= tD
       thishits = states[[ii]]
       tD = cbind(if(all(is.na(thishits))) t(D) else t(D)[,-(thishits)])
   
@@ -924,31 +924,31 @@ get.modelinfo = function(f0, y0, sigma, maxsteps, D, stoprule = c('bic','ebic', 
       curr.proj = proj(tDb)
       y0.fitted = (diag(1,n) - curr.proj) %*% y0
 
-#      if(ii>1) {
-#        prevhits = states[[ii-1]]
-#        tD.prev = cbind(if(all(is.na(prevhits))) t(D) else t(D)[,-(prevhits)])
-#        rr.prev = rankMatrix(tD.prev)
-#        tDb.prev = svd(tD.prev)$u[,1:rr.prev]
-#        prev.proj = proj(tDb.prev)
-#        y0.fitted.prev = (diag(1,n) - prev.proj) %*% y0
-#      }
-#      
-#      par(mfrow=c(2,1))
-#      plot(y0.fitted,ylim = range(y0),type='o'); lines(y0.fitted.prev,col='red');
-#      plot(logb(bic,base=100),ylim=c(-1,1)); abline(v=ii,col='red')
-
-    # Method 2: Form null projection onto D_{-B} directly, from svd
-#      thishits = states[[ii]]
-#      D.curr = if(all(is.na(thishits))) D else D[-(thishits+1),]
-#      rD.curr = rankMatrix(D.curr)
-#      if(rD.curr == ncol(D.curr)){
-#        null.proj = Matrix(0,nrow = length(y0),ncol = length(y0))
-#      }
-#      else {
-#        null.curr = svd( D.curr, nv = ncol(D.curr))$v[,(rD.curr+1):ncol(D.curr)]
-#        null.proj = null.curr %*% t(null.curr)
-#      }
-#      y0.fitted2 = null.proj %*% y0
+##      if(ii>1) {
+##        prevhits = states[[ii-1]]
+##        tD.prev = cbind(if(all(is.na(prevhits))) t(D) else t(D)[,-(prevhits)])
+##        rr.prev = rankMatrix(tD.prev)
+##        tDb.prev = svd(tD.prev)$u[,1:rr.prev]
+##        prev.proj = proj(tDb.prev)
+##        y0.fitted.prev = (diag(1,n) - prev.proj) %*% y0
+##      }
+##      
+##      par(mfrow=c(2,1))
+##      plot(y0.fitted,ylim = range(y0),type='o'); lines(y0.fitted.prev,col='red');
+##      plot(logb(bic,base=100),ylim=c(-1,1)); abline(v=ii,col='red')
+#
+#    # Method 2: Form null projection onto D_{-B} directly, from svd
+##      thishits = states[[ii]]
+##      D.curr = if(all(is.na(thishits))) D else D[-(thishits+1),]
+##      rD.curr = rankMatrix(D.curr)
+##      if(rD.curr == ncol(D.curr)){
+##        null.proj = Matrix(0,nrow = length(y0),ncol = length(y0))
+##      }
+##      else {
+##        null.curr = svd( D.curr, nv = ncol(D.curr))$v[,(rD.curr+1):ncol(D.curr)]
+##        null.proj = null.curr %*% t(null.curr)
+##      }
+##      y0.fitted2 = null.proj %*% y0
 
     myRSS = sum( (y0 - y0.fitted)^2 )
     mydf  = n-rr
@@ -987,7 +987,7 @@ get.modelinfo = function(f0, y0, sigma, maxsteps, D, stoprule = c('bic','ebic', 
     prev.df = mydf
   }
   
-  # record things at primal-changing knots (useful for the graph case)
+  ## Record things at primal-changing knots (useful for the graph case)
     ic.primal = rep(NA,maxsteps)
     ic.primal[1] = ic[1]
     df.before = 1
@@ -1002,8 +1002,19 @@ get.modelinfo = function(f0, y0, sigma, maxsteps, D, stoprule = c('bic','ebic', 
     ic.primal     = ic.primal[knots.primal] 
     actiondirs.primal = actiondirs[knots.primal]
 
-  return(list(RSS=RSS,pen=pen,ic=ic,resids=resids, 
-              knots.primal = knots.primal, resids.primal = resids.primal, ic.primal = ic.primal, actiondirs.primal = actiondirs.primal))
+    ## Issue warning if BIC hasn't stopped (defaults to using consec=2)
+    stop.time = which.rise(ic.primal,consec=consec) - 1
+    stop.time = pmin(stop.time,n-consec-1)
+    if(!(stop.time+consec < maxsteps)){warning(paste('IC rule using', consec, 'rises hasnt stopped!'))}
+
+    return(list(RSS=RSS,
+                pen=pen,
+                ic=ic,
+                resids=resids,
+                knots.primal = knots.primal,
+                resids.primal = resids.primal,
+                ic.primal = ic.primal,
+                actiondirs.primal = actiondirs.primal))
 }
 
 
