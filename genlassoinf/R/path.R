@@ -2,22 +2,23 @@
 ##' modified to compute the polyhedron post-selection inference selection.
 ##'
 ##' We compute a solution path of the generalized lasso dual problem:
-##' % \hat{u}(\lambda) =
-##' \argmin_u \|y - D^T u\|_2^2 \rm{s.t.} \|\u\|_\infty \leq \lambda %
+##' \deqn{\hat{u}(\lambda) = \argmin_u \|y - D^T u\|_2^2 \rm{s.t.} \|\u\|_\infty
+##' \leq \lambda }
 ##'
-##' where %D% is %m \times n%. Here there is no assumption on %D%, and we use a
-##' fresh SVD at each iteration (computationally naive but stable).
+##' where \eqn{D} is \eqn{m \times n}. Here there is no assumption on \eqn{D},
+##' and we use a fresh SVD at each iteration (computationally naive but stable).
 ##'
-##' Note: the df estimates at each %lambda_k% can be thought of as the df for all
-##' solutions corresponding to lambda in %(lambda_k,lambda_{k-1})%, the open
-##' interval to the *right* of the current %lambda_k%.
+##' Note: the df estimates at each \eqn{lambda_k} can be thought of as the df
+##' for all solutions corresponding to lambda in \eqn{(lambda_k,lambda_{k-1})},
+##' the open interval to the *right* of the current \eqn{lambda_k}.
 ##' @param y numeric vector of data.
 ##' @param D penalty matrix.
 ##' @param approx If approx=TRUE, then the fused lasso path will be computed
 ##'     without any coordinates leaving the path.
 ##' @param maxsteps maximum number of steps of the algorithms to run.
-##' @param rtol Tolerance for solving linear system using svdsolve(), defaults to 1e-7.
-##' @param ctol Tolerance for gmat&%y ~= c; defaults to 1e-7
+##' @param rtol Tolerance for solving linear system using svdsolve(), defaults
+##'     to 1e-7.
+##' @param ctol Tolerance for G&%y ~= c; defaults to 1e-7
 ##' @param btol Tolerance for leaving times, precision issue, defaults to 1e-10
 ##' @param cdtol Tolerance for cdtol; defaults to 1e-4
 ##' @export
@@ -45,7 +46,7 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
     n = ncol(D)
     
     # Initialize Gamma matrix (work in progress)
-    # Gammat = Matrix(NA,nrow= maxsteps*ncol(D)*4 ,ncol=n)
+    # G = Matrix(NA,nrow= maxsteps*ncol(D)*4 ,ncol=n)
 
     # Compute the dual solution at infinity, and
     # find the first critical point
@@ -88,14 +89,14 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
     tDinv = MASS::ginv(as.matrix(t(D)))
 
     # rows to add, for first hitting time (no need for sign-eligibility--just add all sign pairs)
-    #Gammat = diag(Sign(uhat)  %*% tDinv)  
+    #G = diag(Sign(uhat)  %*% tDinv)  
     M = matrix(s*tDinv[ihit,], nrow(tDinv[-ihit,]), n, byrow=TRUE) 
-    Gammat = rbind(M + tDinv[-ihit,], 
+    G = rbind(M + tDinv[-ihit,], 
                    M - tDinv[-ihit,])
 
-    tab[k,2] = nrow(Gammat)
+    tab[k,2] = nrow(G)
 
-    nk = nrow(Gammat)
+    nk = nrow(G)
     
     # Other things to keep track of, but not return
     r = 1                      # Size of boundary set
@@ -178,8 +179,8 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
           shits* tDinv
         })
 
-        Gammat = rbind(Gammat, rows.to.add)
-        tab[k,1] = nrow(Gammat)
+        G = rbind(G, rows.to.add)
+        tab[k,1] = nrow(G)
         
         # rows to add, for hitting event: (This is just dividing each row of tDinv by corresponding element of tDinv%*%Ds+shit)
         A = asrowmat(D3/(b+shits)) # tDinv / as.numeric(tDinv %*% Ds + shits)
@@ -187,9 +188,9 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
           nleft = nrow(A[-ihit,])
           if(is.null(nleft)) nleft = 1
           M = matrix(A[ihit,], nrow = nleft, ncol = n, byrow = TRUE) 
-          Gammat = rbind(Gammat, M - A[-ihit,])
+          G = rbind(G, M - A[-ihit,])
         }
-        tab[k,2] = nrow(Gammat)
+        tab[k,2] = nrow(G)
       }
 
       ##########
@@ -260,25 +261,25 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
         #if( (length(Di)!=0) & (which(closeto.lambda) %in% which(Di))) print("closeto.lambda replacement SHOULD have happenned (but didn't).")
         
         # add rows that ensure c<0 #(only in )
-        Gammat <- rbind(Gammat, gmat[Ci&Di,]*(-1),
+        G <- rbind(G, gmat[Ci&Di,]*(-1),
                                 gmat[(!Ci)&Di,])
 #        print("after leave eligibility (c<0)")
-#        print(nrow(Gammat))
-        tab[k,3] = nrow(Gammat)
+#        print(nrow(G))
+        tab[k,3] = nrow(G)
         
-        # get rid of NA rows in Gammat (temporary fix)
-        missing.rows = apply(Gammat, 1, function(row) any(is.na(row)))
-        if(sum(missing.rows)>=1){ Gammat <- Gammat[-which(missing.rows),] }
+        # get rid of NA rows in G (temporary fix)
+        missing.rows = apply(G, 1, function(row) any(is.na(row)))
+        if(sum(missing.rows)>=1){ G <- G[-which(missing.rows),] }
 
         # add rows for maximizer
         CDi = (Ci & Di)
         CDi[ileave] = FALSE
         CDind = which(CDi)
 
-        Gammat <- rbind(Gammat, gd[rep(ileave,length(CDind)),] - gd[CDind,])
+        G <- rbind(G, gd[rep(ileave,length(CDind)),] - gd[CDind,])
 #        print("after leave times")
-#        print(nrow(Gammat))
-        tab[k,4] = nrow(Gammat)
+#        print(nrow(G))
+        tab[k,4] = nrow(G)
       }
       ##########
       # Stop if the next critical point is negative
@@ -302,13 +303,13 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
         # add row to Gamma to characterize the hit coming next
         if(!approx)  {
           # this is literally h_k - l_k > 0
-          Gammat = rbind(Gammat,  A[ihit,] - gd[ileave,])
+          G = rbind(G,  A[ihit,] - gd[ileave,])
 #          print("after hit vs leave (hit wins)")
-#          print(nrow(Gammat))
-          tab[k,5] = nrow(Gammat)
+#          print(nrow(G))
+          tab[k,5] = nrow(G)
         }
 
-        nk = c(nk,nrow(Gammat))
+        nk = c(nk,nrow(G))
         
         # Update all of the variables
         r = r+1
@@ -340,10 +341,10 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
         
         # add row to Gamma to characterize the leave coming next
         if(!approx)  {
-          Gammat = rbind(Gammat, - A[ihit,] + gd[ileave,])
-          tab[k,5] = nrow(Gammat)
+          G = rbind(G, - A[ihit,] + gd[ileave,])
+          tab[k,5] = nrow(G)
         }
-        nk = c(nk,nrow(Gammat))
+        nk = c(nk,nrow(G))
 
         # Update all of the variables
         r = r-1
@@ -409,11 +410,58 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
     ss = c(NA,ss)
     states = get.states(action)
 
-    mypath = list(lambda=lams,beta=beta,fit=beta,u=u,hit=h,df=df,y=y,ss=ss,
-                   states=states, completepath=completepath,bls=y,
-                   pathobjs=pathobjs, Gammat=Gammat, nk = nk, action=action,
-                   tab=tab, D = D)
+    mypath = list(lambda=lams,beta=beta,fit=beta,hit=h,df=df,y=y,ss=ss,
+                  states=states, completepath=completepath,bls=y,
+                  pathobjs=pathobjs, nk = nk, action=action, tab=tab, D = D,
+                  Gobj.naive=list(G=G,u=u), Gobj.stoprule = NULL)
     class(mypath) <- "path"
     return(mypath)
 }
 
+
+##' Function generic for stop_path()
+stop_path <- function(x,...) UseMethod("stop_path")
+
+##' Embed stopping time into the path.
+##' @param obj A naive |path| object
+##' @param sigma Standard deviation generating the data, in \code{obj$y}
+##' @param stoprule Either one of \code{c("bic","ebic","aic")}. Defaults to \code{"bic"}.
+##' @param consec How many rises do you want to stop at? Defaults to 2.
+##' @examples
+##' n = 60
+##' sigma=1
+##' consec = 2
+##' D = makeDmat(n,type='tf',ord=0)
+##' set.seed(1)
+##' y0 = rep(c(0,1),each=n/2) + rnorm(n,0,sigma)
+##' f0 = dualpathSvd2(y0,D,maxsteps,approx=T)
+##' f0 = stop_path(f0)
+stop_path.path = function(obj, sigma, stoprule = "bic", consec = 2){
+
+    ## Basic checks
+    stopifnot(is.null(obj$Gobj.stoprule))
+
+    ## Get bic stopping time
+    ic = get.modelinfo(obj, consec=2, sigma=sigma, stoprule = stoprule)$ic
+    stoptime = which.rise(ic,consec) - 1 
+    stoptime = pmin(stoptime, n-consec-1)
+    stopifnot(stoptime>0)
+    locs.bic = obj$pathobj$B[1:stoptime]
+
+    ## Get object for stopping time.
+    new.Gobj = getGammat.with.stoprule(obj=obj, y=y0,
+                                   condition.step=stoptime+consec,
+                                   type='tf', stoprule = stoprule, sigma=sigma,
+                                   consec=consec, maxsteps=maxsteps, D=D)
+    obj$Gobj.stoprule = list(G=new.Gobj$G, u=new.Gobj$u)
+
+    ## Add stopping time to path object
+    obj$stoptime = matrix(stoptime,
+                          dimnames=list(NULL,paste(stoprule, "with consec=", consec)))
+    obj$stoprule = stoprule
+    obj$consec = consec
+
+    ## Return updated path object! Yay!
+    class(obj) <- "path"
+    return(obj)
+}

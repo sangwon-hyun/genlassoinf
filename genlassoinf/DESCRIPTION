@@ -12,7 +12,8 @@ Imports:
     Matrix,
     pracma,
     Rmpfr,
-    igraph
+    igraph,
+    stepR
 Suggests:
     xtable
 RoxygenNote: 5.0.1.9000

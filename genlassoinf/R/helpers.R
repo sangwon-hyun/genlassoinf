@@ -32,54 +32,55 @@ get.augmented.X = function(X,breaks,return.groups = F,TT,J,group.inds){
 
 ##' Helper function to take all neighboring-to-each-other clusters,
 ##' And declutter them by removing all but (rounded up) centroids
+##' @export
 declutter = function(coords, how.close = 1, sort=T, indexonly = F){#closeby.same.direction.are.disallowed=F
   
-  #make groups of cliques
-  unsorted.coords=coords
-  coords = sort(coords)      
+    ## n
+    unsorted.coords=coords
+    coords = sort(coords)      
 
-  # error checking
-  if(length(coords)<=1){
-    if(length(coords)==0) cat('\n',"attempting to declutter", length(coords), "coordinates",'\n')
-    return(coords)
-  }  
-
-  # get the clique memberships
-  adjacent.diffs = abs(coords[1:(length(coords)-1)] - coords[2:length(coords)])
-
-  cliq.num=1
-  cliq.vec=rep(NA,length(coords))
-  for(ii in 1:length(adjacent.diffs)){
-    if(adjacent.diffs[ii] <= how.close){  ## used to be ==1
-      cliq.vec[ii] = cliq.vec[ii+1] = cliq.num
-    } else {
-      cliq.num = cliq.num+1
-    }
-  }
+    ## error checking
+    if(length(coords)<=1){
+      if(length(coords)==0) cat('\n',"attempting to declutter", length(coords), "coordinates",'\n')
+      return(coords)
+    }  
   
-  # determine who will leave
-  leavelist = c()
-  for(cliq.num in unique(cliq.vec[!is.na(cliq.vec)])){
-    members = which(cliq.vec == cliq.num)
-    stay = round(mean(members))
-    leave = members[members!=stay]
-    leavelist = c(leavelist,leave)  
-  }
-  if(length(leavelist)>=1){
-    processed.coords = coords[-leavelist]
-  } else {
-    processed.coords = coords
-  }
-
-  if(indexonly){
-    return(which(unsorted.coords %in% processed.coords))
-  } else {
-    if(sort){
-      return(processed.coords)
-    } else {
-      return(unsorted.coords[unsorted.coords %in% processed.coords])
+    ## get the clique memberships
+    adjacent.diffs = abs(coords[1:(length(coords)-1)] - coords[2:length(coords)])
+  
+    cliq.num=1
+    cliq.vec=rep(NA,length(coords))
+    for(ii in 1:length(adjacent.diffs)){
+      if(adjacent.diffs[ii] <= how.close){  ## used to be ==1
+        cliq.vec[ii] = cliq.vec[ii+1] = cliq.num
+      } else {
+        cliq.num = cliq.num+1
+      }
     }
-  }
+    
+    ## determine who will leave
+    leavelist = c()
+    for(cliq.num in unique(cliq.vec[!is.na(cliq.vec)])){
+        members = which(cliq.vec == cliq.num)
+        stay = round(mean(members))
+        leave = members[members!=stay]
+        leavelist = c(leavelist,leave)  
+    }
+    if(length(leavelist)>=1){
+      processed.coords = coords[-leavelist]
+    } else {
+      processed.coords = coords
+    }
+  
+    if(indexonly){
+      return(which(unsorted.coords %in% processed.coords))
+    } else {
+        if(sort){
+        return(processed.coords)
+      } else {
+        return(unsorted.coords[unsorted.coords %in% processed.coords])
+      }
+    }
 }
   
   
@@ -893,128 +894,146 @@ getbic.regression = function(y0.orig, f0, sigma, maxsteps,X.orig, ginvX.orig, D.
 
 
 ##' Calculates various model-related quantities for _any_ D for the signal
-##' approximator case (IC, penalty, RSS, residual) \code{df.fun()} is a function that
-##' returns the degrees of freedom of fit of %yhat = Proj_{null(D_B)} y%
+##' approximator case (IC, penalty, RSS, residual) \code{df.fun()} is a function
+##' that returns the degrees of freedom of fit of %yhat = Proj_{null(D_B)} y%.
+##' Since there is no reason to /want/ to use a different \code{D} matrix than
+##' what was used in the path object \code{f0}, we don't consider
+##' @param f0 Object of class |path|.
+##' @param consec How many consecutive rises in IC? Defaults to 2
+##' @param sigma Standard deviation that the i.i.d. (Gaussian) data was
+##'     generated from.
+##' @param maxsteps Maximum number of path steps to consider, in calculating
+##'     degrees of freedom. Defaults to the total number of steps made in the
+##'     path (in \code{f0}), in the first place!
+##' @param stoprule Out of BIC, EBIC, and AIC, which criterion you want to
+##'     consider.
+##' @param ebic.fac Correction factor in EBIC by Chen & Chen (2008)
+##' @param verbose Whether to be loud while doing stuff.
 ##' @export
-get.modelinfo = function(f0, y0, sigma, maxsteps, D, stoprule = c('bic','ebic', 'aic'), ebic.fac=.5, verbose=F, consec=2){
+get.modelinfo = function(obj, consec=2, sigma, maxsteps=length(obj$action),
+                         stoprule = c('bic','ebic', 'aic'), ebic.fac=.5,
+                         verbose=F){
 
-  stoprule = match.arg(stoprule)
-  
-  ## Create empty objects
-  n = length(y0)  
-  ic = RSS = pen = df = rep(NA,maxsteps)
-  resids = matrix(NA,nrow=n,ncol=maxsteps)
-  actiondirs = c(NA, sign(f0$action)[1:(maxsteps)])  # s* : change in model size
+    ## Basic checks
+    stoprule = match.arg(stoprule)
+    
+    ## Load things
+    D = obj$D
+    y0 = obj$y
+    n = length(y0)  
 
-  # Obtain each path's state at each step
-  states = get.states(f0$action)
-  
-  # Collect BIC at each step 0 ~ (maxsteps-1)
-  for(ii in 1:maxsteps){
-    if(verbose){
-      cat('step', ii, '\n')
+    ## Create empty objects
+    ic = RSS = pen = df = rep(NA, maxsteps)
+    resids = matrix(NA,nrow=n,ncol=maxsteps)
+    actiondirs = c(NA, sign(obj$action)[1:(maxsteps)])  # s* : change in model size
+    
+    ## Obtain sequence of path's state at the end of each step
+    states = get.states(obj$action)
+    
+    ## Collect BIC at each step 0 ~ (maxsteps-1)
+    for(ii in 1:maxsteps){
+        if(verbose){
+            cat('step', ii, '\n')
+        }
+        ## Method 1: Form proj null(D_{-B}) by orth proj onto row(D_{-B}) = col(t(D_{-B})) ~= tD
+        thishits = states[[ii]]
+        tD = cbind(if(all(is.na(thishits))) t(D) else t(D)[,-(thishits)])
+        
+        proj = function(mymat){ return(mymat %*% solve(t(mymat)%*%mymat, t(mymat)))}
+        rr = rankMatrix(tD)
+        tDb = svd(tD)$u[,1:rr]
+        curr.proj = proj(tDb)
+        y0.fitted = (diag(1,n) - curr.proj) %*% y0
+        
+        ##      if(ii>1) {
+        ##        prevhits = states[[ii-1]]
+        ##        tD.prev = cbind(if(all(is.na(prevhits))) t(D) else t(D)[,-(prevhits)])
+        ##        rr.prev = rankMatrix(tD.prev)
+        ##        tDb.prev = svd(tD.prev)$u[,1:rr.prev]
+        ##        prev.proj = proj(tDb.prev)
+        ##        y0.fitted.prev = (diag(1,n) - prev.proj) %*% y0
+        ##      }
+        ##      
+        ##      par(mfrow=c(2,1))
+        ##      plot(y0.fitted,ylim = range(y0),type='o'); lines(y0.fitted.prev,col='red');
+        ##      plot(logb(bic,base=100),ylim=c(-1,1)); abline(v=ii,col='red')
+                                        #
+        ## Method 2: Form null projection onto D_{-B} directly, from svd
+        ##      thishits = states[[ii]]
+        ##      D.curr = if(all(is.na(thishits))) D else D[-(thishits+1),]
+        ##      rD.curr = rankMatrix(D.curr)
+        ##      if(rD.curr == ncol(D.curr)){
+        ##        null.proj = Matrix(0,nrow = length(y0),ncol = length(y0))
+        ##      }
+        ##      else {
+        ##        null.curr = svd( D.curr, nv = ncol(D.curr))$v[,(rD.curr+1):ncol(D.curr)]
+        ##        null.proj = null.curr %*% t(null.curr)
+        ##      }
+        ##      y0.fitted2 = null.proj %*% y0
+        
+        myRSS = sum( (y0 - y0.fitted)^2 )
+        mydf  = n-rr
+        if(ii==1) prev.df = mydf
+        mypen = (if(stoprule=='bic'){
+                     (sigma^2) * mydf * log(n) 
+                 } else if (stoprule=='ebic'){
+                     (sigma^2) * mydf * log(n) + 2*(1-ebic.fac) *
+                         log(choose(n,mydf)) * sigma^2
+                 } else if (stoprule=='aic'){
+                     (sigma^2) * mydf * 2 
+                 } else {
+                     stop(paste(type, "not coded yet!"))
+                 })
+        
+                                        # If there is an addition to the boundary set and an addition to the
+        if(ii>1  & mydf != prev.df){#& actiondirs[ii] == +1
+                                        #        rankMatrix(curr.proj - prev.proj)
+            ptol = 1E-10
+            if(all(abs(as.numeric(curr.proj - prev.proj)) < ptol)){
+                myresid = rep(NA,n)
+            } else {
+                myresid = svd(curr.proj - prev.proj)$u[,1]
+                myresid = myresid / sqrt(sum((myresid)^2))
+            }
+        } else {myresid = rep(NA,n)}
+        
+        ## Store RSS + p(df)
+        RSS[ii] <- myRSS
+        pen[ii] <- mypen
+        ic[ii] <- myRSS + mypen
+        resids[,ii] <- myresid
+        df[ii] <- mydf
+        
+        ## Update previous information by current information.
+        prev.proj = curr.proj
+        prev.df = mydf
     }
-    ## Method 1: Form proj null(D_{-B}) by orth proj onto row(D_{-B}) = col(t(D_{-B})) ~= tD
-      thishits = states[[ii]]
-      tD = cbind(if(all(is.na(thishits))) t(D) else t(D)[,-(thishits)])
-  
-      proj = function(mymat){ return(mymat %*% solve(t(mymat)%*%mymat, t(mymat)))}
-      rr = rankMatrix(tD)
-      tDb = svd(tD)$u[,1:rr]
-      curr.proj = proj(tDb)
-      y0.fitted = (diag(1,n) - curr.proj) %*% y0
-
-##      if(ii>1) {
-##        prevhits = states[[ii-1]]
-##        tD.prev = cbind(if(all(is.na(prevhits))) t(D) else t(D)[,-(prevhits)])
-##        rr.prev = rankMatrix(tD.prev)
-##        tDb.prev = svd(tD.prev)$u[,1:rr.prev]
-##        prev.proj = proj(tDb.prev)
-##        y0.fitted.prev = (diag(1,n) - prev.proj) %*% y0
-##      }
-##      
-##      par(mfrow=c(2,1))
-##      plot(y0.fitted,ylim = range(y0),type='o'); lines(y0.fitted.prev,col='red');
-##      plot(logb(bic,base=100),ylim=c(-1,1)); abline(v=ii,col='red')
-#
-#    # Method 2: Form null projection onto D_{-B} directly, from svd
-##      thishits = states[[ii]]
-##      D.curr = if(all(is.na(thishits))) D else D[-(thishits+1),]
-##      rD.curr = rankMatrix(D.curr)
-##      if(rD.curr == ncol(D.curr)){
-##        null.proj = Matrix(0,nrow = length(y0),ncol = length(y0))
-##      }
-##      else {
-##        null.curr = svd( D.curr, nv = ncol(D.curr))$v[,(rD.curr+1):ncol(D.curr)]
-##        null.proj = null.curr %*% t(null.curr)
-##      }
-##      y0.fitted2 = null.proj %*% y0
-
-    myRSS = sum( (y0 - y0.fitted)^2 )
-    mydf  = n-rr
-    if(ii==1) prev.df = mydf
-    mypen = (if(stoprule=='bic'){
-                 (sigma^2) * mydf * log(n) 
-             } else if (stoprule=='ebic'){
-                 (sigma^2) * mydf * log(n) + 2*(1-ebic.fac) *
-                     log(choose(n,mydf)) * sigma^2
-             } else if (stoprule=='aic'){
-                 (sigma^2) * mydf * 2 
-             } else {
-                 stop(paste(type, "not coded yet!"))
-             })
     
-    # If there is an addition to the boundary set and an addition to the
-    if(ii>1  & mydf != prev.df){#& actiondirs[ii] == +1
-#      rankMatrix(curr.proj - prev.proj)
-      ptol = 1E-10
-      if(all(abs(as.numeric(curr.proj - prev.proj)) < ptol)){
-        myresid = rep(NA,n)
-      } else {
-        myresid = svd(curr.proj - prev.proj)$u[,1]
-        myresid = myresid / sqrt(sum((myresid)^2))
-      }
-    } else {myresid = rep(NA,n)}
-    
-    # Store RSS + p(df)
-    RSS[ii] <- myRSS
-    pen[ii] <- mypen
-    ic[ii] <- myRSS + mypen
-    resids[,ii] <- myresid
-    df[ii] <- mydf
-    
-    prev.proj = curr.proj
-    prev.df = mydf
-  }
-  
-  ## Record things at primal-changing knots (useful for the graph case)
+    ## Record things at primal-changing knots (useful for the graph case)
     ic.primal = rep(NA,maxsteps)
     ic.primal[1] = ic[1]
     df.before = 1
     for(ii in 2:length(df)){
-      if(!(df.before == df[ii])){
-        ic.primal[ii] = ic[ii]
-      }
-      df.before = df[ii]
+        if(!(df.before == df[ii])){
+            ic.primal[ii] = ic[ii]
+        }
+        df.before = df[ii]
     }
     knots.primal  = which(!is.na(ic.primal))
     resids.primal = resids[knots.primal]
     ic.primal     = ic.primal[knots.primal] 
     actiondirs.primal = actiondirs[knots.primal]
-
-    ## Issue warning if BIC hasn't stopped (defaults to using consec=2)
+    
+    ## Issue warning if BIC hasn't stopped, or stoptime is zero.
     stop.time = which.rise(ic.primal,consec=consec) - 1
     stop.time = pmin(stop.time,n-consec-1)
     if(!(stop.time+consec < maxsteps)){warning(paste('IC rule using', consec, 'rises hasnt stopped!'))}
+    stop.time = pmin(stop.time, n-consec-1) ## can't remember why I did this.
+    if(stop.time==0) warning('Stoptime is zero!')
 
-    return(list(RSS=RSS,
-                pen=pen,
-                ic=ic,
-                resids=resids,
-                knots.primal = knots.primal,
-                resids.primal = resids.primal,
-                ic.primal = ic.primal,
-                actiondirs.primal = actiondirs.primal))
+    return(list(RSS=RSS, pen=pen, ic=ic, resids=resids,
+                knots.primal = knots.primal, resids.primal = resids.primal,
+                ic.primal = ic.primal, actiondirs.primal = actiondirs.primal))
 }
 
 
@@ -1022,14 +1041,14 @@ get.modelinfo = function(f0, y0, sigma, maxsteps, D, stoprule = c('bic','ebic', 
 ## Calculates BIC for _any_ D for the signal approximator case df.fun is a
 ## function that returns the degrees of freedom of fit of yhat =
 ## Proj_{null(D_B)} y
-get.ic = function(f0, y0, sigma, maxsteps, D, type = c('bic','ebic', 'aic'), ebic.fac=.5){
+get.ic = function(obj, y0, sigma, maxsteps, D, type = c('bic','ebic', 'aic'), ebic.fac=.5){
 
   # Setup empty IC vector and regressor matrix H, for k'th order trend filtering problems
   ic = RSS = pen = numeric(maxsteps+1)
   n = length(y0)  
 
   # Obtain each path's state at each step
-  states = get.states(f0$action)
+  states = get.states(obj$action)
   
   # Collect BIC at each step 0 ~ (maxsteps-1)
   for(ii in 1:(maxsteps+1)){
@@ -1162,15 +1181,15 @@ getB.from.actions = function(actions){
 
 ##'  Wrapper for getmodelinfo.graph() to get bic scores only Returns BIC for
 ##'  steps 0~maxsteps
-getbic.graph = function(f0,y0, sigma, maxsteps, Dmat, stoptime=F, dual = T){
-  a = getmodelinfo.graph(f0,y0, sigma, maxsteps, Dmat, stoptime=F)
+getbic.graph = function(obj,y0, sigma, maxsteps, Dmat, stoptime=F, dual = T){
+  a = getmodelinfo.graph(obj,y0, sigma, maxsteps, Dmat, stoptime=F)
   if(dual){ return(a$bic) } else { return(a$bic.primal)}
 }
 
 ##'  Function to create things related to model selection, for the graph case
 ##'  Input : path object, y0, initial graph, maximum steps to take, Dmat,
 ##'  cluster size, cluster # Output: 6 p values for each possible segment test.
-getmodelinfo.graph = function(f0,y0, sigma, maxsteps, Dmat, stoptime=F){
+getmodelinfo.graph = function(obj,y0, sigma, maxsteps, Dmat, stoptime=F){
 
   mygraph = graph_from_adjacency_matrix(getadjmat.from.Dmat(Dmat), mode="undirected")
   n = length(y0)  
@@ -1189,7 +1208,7 @@ getmodelinfo.graph = function(f0,y0, sigma, maxsteps, Dmat, stoptime=F){
 
   for(step in 1:maxsteps){
       ## Get current Dmat
-      Dmat.curr = Dmat[-getB.from.actions(f0$action[1:step]),]
+      Dmat.curr = Dmat[-getB.from.actions(obj$action[1:step]),]
       
       ## Get current Graph
       mygraph = graph_from_adjacency_matrix(getadjmat.from.Dmat(Dmat.curr), mode="undirected")
@@ -1287,7 +1306,7 @@ getmodelinfo.graph = function(f0,y0, sigma, maxsteps, Dmat, stoptime=F){
 ##' returns the properly adjusted trendfiltering contrast
 get.tf.contrast = function(action, y, test.time, stop.time, order=1){
     H = getH.trendfilter(n,order)
-    test.coord = f0$action[test.time] + 1
+    test.coord = action[test.time] + 1
     adj.coord = c(1:(order+1), (1+states[[stop.time]]))
     adj.coord = adj.coord[adj.coord!=test.coord]
     X = H[, adj.coord]
@@ -1329,3 +1348,40 @@ if(length(breaks)<k) stop("not enough breaks!! k > number of breaks")
   
   return(list(Kmin=Kmin,K=K,Kmax=Kmax))
 }
+
+
+
+
+##' Takes in the signs |signs| and the locations |final.model| and returns a
+##' vector of values that you can plot as a step sign plot.
+##' @param signs signs of breakpoints
+##' @param final.model breakpoint set
+##' @param n length of data.
+##' @examples
+##' step.sign.plot(signs = c(+1,-1), final.model = c(20,36), n=60)
+##' @export
+step_sign_plot_inner = function(signs, final.model, n){
+    signs = signs[order(final.model)]
+    signs = c(-signs[1], signs)
+    cumul.signs = cumsum(signs)
+    final.model = sort(final.model)
+    nn = length(final.model)
+    indices <- vector(mode = "list", length = nn+1)
+    if(length(final.model)==1){
+        indices[[1]] = 1:final.model
+        indices[[2]] = (final.model+1):n
+    } else { 
+        indices[2:nn] = Map(function(a,b){a:b},
+                            final.model[1:(length(final.model)-1)]+1, 
+                            final.model[2:length(final.model)])
+        indices[[1]] = 1:final.model[1]
+        indices[[nn+1]] = (final.model[length(final.model)]+1):n
+    }
+  
+    sign0 = do.call(c,
+                    lapply(1:length(cumul.signs),
+                           function(ii){rep(cumul.signs[ii], length(indices[[ii]]))}))
+
+    return(sign0)
+}
+

@@ -4,15 +4,17 @@
 ##' @export
 getGammat.naive = function(obj, y, condition.step=NULL){
 
-    n = length(y)
     ## Error checking
+    n = length(y)
     if(length(obj$action) < condition.step ){
         stop("\n You must ask for polyhedron from less than ",
              length(obj$action), " steps! \n")
     }
-    myGammat = obj$Gamma[1:obj$nk[condition.step],]
-    return(list(Gammat = myGammat, u = rep(0,nrow(myGammat)),
-                condition.step=condition.step))
+
+    ## Extract naive Gamma matrix
+    my.Gammat = obj$Gobj.naive$G[1:obj$nk[condition.step],]
+    my.u = rep(0,nrow(my.Gammat))
+    return(list(G = my.Gammat, u = my.u, condition.step=condition.step))
 }
 
 ##' Produces the rows to add to Gammat matrix for IC-based stopping rule in
@@ -21,61 +23,62 @@ getGammat.naive = function(obj, y, condition.step=NULL){
 getGammat.stoprule = function(obj, y, condition.step, stoprule, sigma, consec,
                               maxsteps, ebic.fac= 0.5, D, verbose=F){
 
-  if(!(stoprule %in% c('bic','ebic','aic'))){    stop('stoprule not coded yet!') }
+    if(!(stoprule %in% c('bic','ebic','aic'))){    stop('stoprule not coded yet!') }
+    
+    n = length(y)
+    mm = get.modelinfo(obj=obj, consec=2, sigma=sigma, stoprule=stoprule,
+                       ebic.fac=ebic.fac, verbose=verbose)
   
-  n = length(y)
-  mm = get.modelinfo(obj,y,sigma,maxsteps=maxsteps,D=D,stoprule=stoprule,ebic.fac=ebic.fac,verbose=verbose)
-
-  ## get IC vector
-  ic = mm$ic #get.ic(y,obj, sigma,maxsteps,D,type=stoprule,ebic.fac=ebic.fac)$ic
-
-  ## s* : change in model size
-  actiondirs = c(NA, sign(obj$action)[1:(maxsteps-1)])
-  ## s** : change in bic
-  seqdirs = c(getorder(ic))
-  ## multiply s* and s**
-  signs = seqdirs*actiondirs
+    ## get IC vector
+    ic = mm$ic #get.ic(y,obj, sigma,maxsteps,D,type=stoprule,ebic.fac=ebic.fac)$ic
   
-
-  ## get stop times
-  stoptime = which.rise(ic, consec, "forward") - 1
+    ## s* : change in model size
+    actiondirs = c(NA, sign(obj$action)[1:(maxsteps-1)])
+    ## s** : change in bic
+    seqdirs = c(getorder(ic))
+    ## multiply s* and s**
+    signs = seqdirs*actiondirs
+    
   
-  if(length(seqdirs) < stoptime + consec + 1) warning(paste(stoprule, "has not stopped"))
-
-  ## Check if conditioning steps are the same (i.e. stoptime + consec)
-  stopifnot(condition.step == stoptime+consec)
-
-  ## safely making enough empty rows to add
-  rows.to.add = more.rows.to.add = matrix(NA, nrow = (stoptime+consec),
-                                          ncol = ncol(obj$Gammat))
-  upol = more.upol = rep(NA,stoptime+consec-1)
-  states = get.states(obj$action)
-
-  ## Add rows to |G| and |u|
-  for(jj in 1:(stoptime+consec)){
+    ## get stop times
+    stoptime = which.rise(ic, consec, "forward") - 1
+    
+    if(length(seqdirs) < stoptime + consec + 1) warning(paste(stoprule, "has not stopped"))
   
-    residual = mm$resids[,jj+1]
-    const    = abs(mm$pen[jj+1] - mm$pen[jj]) #getconst(stoprule,jj,sigma,n,big.df,small.df,bic.fac,ebic.fac)   
-    upol[jj] = (-signs[jj+1]) * sqrt(const)
-    rows.to.add[jj,] = (-signs[jj+1]) * sign(t(residual)%*%y) * residual/sqrt(sum(residual^2))
-
-    # Also add other direction if (1) model size change and (2) BIC comparison
-#    # are *both* up or down, in direction
-#    if(actiondirs[jj+1] == seqdirs[jj+1] & !any(is.na(residual))){
-#      more.upol[jj] = (-signs[jj+1]) * sqrt(const)
-#      more.rows.to.add[jj,] = (signs[jj+1]) * sign(t(residual)%*%y) * residual/sqrt(sum(residual^2))
-#    }
-  }
+    ## Check if conditioning steps are the same (i.e. stoptime + consec)
+    stopifnot(condition.step == stoptime+consec)
   
-  rows.to.add = rbind(rows.to.add, 
-                      more.rows.to.add)
-  upol = c(upol, more.upol)
-
-  # Get rid of non-primal-changing comparisons
-  upol = upol[which(!is.na(rows.to.add[,1]))]
-  rows.to.add = rows.to.add[which(!is.na(rows.to.add[,1])),]
-
-  return(list(Gammat = rows.to.add, u = upol))
+    ## safely making enough empty rows to add
+    rows.to.add = more.rows.to.add = matrix(NA, nrow = (stoptime+consec),
+                                            ncol = ncol(obj$Gobj.naive$G))
+    upol = more.upol = rep(NA,stoptime+consec-1)
+    states = get.states(obj$action)
+  
+    ## Add rows to |G| and |u|
+    for(jj in 1:(stoptime+consec)){
+    
+      residual = mm$resids[,jj+1]
+      const    = abs(mm$pen[jj+1] - mm$pen[jj]) #getconst(stoprule,jj,sigma,n,big.df,small.df,bic.fac,ebic.fac)   
+      upol[jj] = (-signs[jj+1]) * sqrt(const)
+      rows.to.add[jj,] = (-signs[jj+1]) * sign(t(residual)%*%y) * residual/sqrt(sum(residual^2))
+  
+      # Also add other direction if (1) model size change and (2) BIC comparison
+  #    # are *both* up or down, in direction
+  #    if(actiondirs[jj+1] == seqdirs[jj+1] & !any(is.na(residual))){
+  #      more.upol[jj] = (-signs[jj+1]) * sqrt(const)
+  #      more.rows.to.add[jj,] = (signs[jj+1]) * sign(t(residual)%*%y) * residual/sqrt(sum(residual^2))
+  #    }
+    }
+    
+    rows.to.add = rbind(rows.to.add, 
+                        more.rows.to.add)
+    upol = c(upol, more.upol)
+  
+    # Get rid of non-primal-changing comparisons
+    upol = upol[which(!is.na(rows.to.add[,1]))]
+    rows.to.add = rows.to.add[which(!is.na(rows.to.add[,1])),]
+  
+    return(list(G = rows.to.add, u = upol))
 }
 
 
@@ -117,7 +120,7 @@ getGammat.stoprule.regression = function(obj, y, condition.step, stoprule,
   
     # safely making enough empty rows to add
     rows.to.add = matrix(NA, nrow = (stoptime+consec),
-                         ncol = ncol(obj$Gammat))
+                         ncol = ncol(obj$Gobj.naive$G))
     upol = rep(NaN,stoptime+consec-1)
   
     states = get.states(f0$action)
@@ -207,7 +210,7 @@ getGammat.stoprule.regression = function(obj, y, condition.step, stoprule,
     upol = upol[which(!is.na(rows.to.add[,1]))]
     rows.to.add = rows.to.add[which(!is.na(rows.to.add[,1])),]
   
-    return(list(Gammat = rows.to.add, u = upol))
+    return(list(G = rows.to.add, u = upol))
 }
 
 
@@ -255,12 +258,12 @@ getGammat.with.stoprule = function(obj, y, condition.step,# usage = c("fl1d", "d
     }
         
     ## Combine naive rows and new rows
-    G.combined = rbind(G.naive$Gammat,
-                       G.new.obj$Gammat)
-    uvec = c(rep(0,nrow(G.naive$Gammat)), 
+    G.combined = rbind(G.naive$G,
+                       G.new.obj$G)
+    uvec = c(rep(0,nrow(G.naive$G)),
              G.new.obj$u)
   
-    return(list(Gammat = G.combined, u = uvec))
+    return(list(G = G.combined, u = uvec))
 }
 
 
