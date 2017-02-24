@@ -4,8 +4,8 @@ n = 100
 maxsteps = 5
 lev1 = 0
 lev2 = 3
-consec=2
-D = dual1d_Dmat(length(y0))
+consec = 2
+D = dual1d_Dmat(n)
 
 ## Generate data + path
 beta0 = rep(c(lev1,lev2),each=n/2)
