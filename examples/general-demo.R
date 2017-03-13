@@ -44,15 +44,14 @@ stoptime = f0$stoptime
 
 
 ## AFTER running ONE OF Method 1-3: Form contrast and segment test p-value
-final.model = states[[stoptime+1]]
-for(ii in 1:length(final.model)){
-   this.sign = f0$pathobj$s[which(f0$pathobj$B == final.model[ii])]
-    my.v.lrt = make.v.tf.fp(test.knot = final.model[ii],
-                            adj.knot  = final.model,
+locs = f0$stoppedmodel
+for(ii in 1:length(locs)){
+   this.sign = f0$pathobj$s[which(f0$pathobj$B == locs[ii])]
+    my.v.lrt = make.v.tf.fp(test.knot = locs[ii],
+                            adj.knot  = locs,
                             test.knot.sign = this.sign,
                             D=D)
     pval = poly.pval(y=y0, G=G, u=u, v=my.v.lrt, sigma=sigma)$pv
     cat("After fixed size model was selected, the segment test pvalue at location",
-        final.model[ii], "is", pval,fill=TRUE)
+        locs[ii], "is", pval,fill=TRUE)
 }
-final.model

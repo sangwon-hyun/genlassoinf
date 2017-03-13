@@ -31,7 +31,7 @@ f0 = dualpathSvd2(y0,D,maxsteps,approx=T)
 f0 = stop_path(f0, sigma=sigma, stoprule="bic")
     
 ## Identify test locations from path, stopping using BIC
-locs = f0$pathobj$B[1:f0$stoptime]
+locs = f0$stoppedmodel
 
 ## Collect SMUCE CIs and TG pvals, using the same segment contrasts
 cis = array(NA,dim=c(n,2))

@@ -445,12 +445,12 @@ stop_path.path = function(obj, sigma, stoprule = "bic", consec = 2){
     ## Get bic stopping time
     ic = get.modelinfo(obj, consec=2, sigma=sigma, stoprule = stoprule)$ic
     stoptime = which.rise(ic,consec) - 1 
-    stoptime = pmin(stoptime, n-consec-1)
+    stoptime = pmin(stoptime, length(obj$y)-consec-1)
     stopifnot(stoptime>0)
     locs.bic = obj$pathobj$B[1:stoptime]
 
     ## Get object for stopping time.
-    new.Gobj = getGammat.with.stoprule(obj=obj, y=y0,
+    new.Gobj = getGammat.with.stoprule(obj=obj, y=obj$y,
                                    condition.step=stoptime+consec,
                                    type='tf', stoprule = stoprule, sigma=sigma,
                                    consec=consec, maxsteps=maxsteps, D=D)
@@ -461,8 +461,10 @@ stop_path.path = function(obj, sigma, stoprule = "bic", consec = 2){
                           dimnames=list(NULL,paste(stoprule, "with consec=", consec)))
     obj$stoprule = stoprule
     obj$consec = consec
+    obj$stoppedmodel = obj$states[[stoptime+1]]
 
     ## Return updated path object! Yay!
     class(obj) <- "path"
     return(obj)
 }
+
