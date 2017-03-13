@@ -436,6 +436,7 @@ stop_path <- function(x,...) UseMethod("stop_path")
 ##' y0 = rep(c(0,1),each=n/2) + rnorm(n,0,sigma)
 ##' f0 = dualpathSvd2(y0,D,maxsteps,approx=T)
 ##' f0 = stop_path(f0)
+##' @export
 stop_path.path = function(obj, sigma, stoprule = "bic", consec = 2){
 
     ## Basic checks
