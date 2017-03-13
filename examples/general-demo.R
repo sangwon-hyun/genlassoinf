@@ -5,7 +5,7 @@ maxsteps = 5
 lev1 = 0
 lev2 = 2
 consec = 2
-D = dual1d_Dmat(n)
+D = makeDmat(n,type='tf',ord=0)
 
 ## Generate data + path
 beta0 = rep(c(lev1,lev2),each=n/2)
