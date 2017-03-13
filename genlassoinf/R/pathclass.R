@@ -70,3 +70,46 @@ step_sign_plot.path = function(mypath, stoptime, postprocess=FALSE, plot=FALSE){
     }
     return(s0)
 }
+
+
+
+
+##' Takes a fused lasso path object (from running \code{dualpathSvd2()}) and
+##' plots the mean and changepoints of a `good' model -- good is either the
+##' model size selected by cross-validation, or selected by an IC rule.
+##' @param f0 product from running 1d fused lasso \code{dualpathSvd2()}.
+##' @param stoprule Desired stopping rule of algorithm. 
+##' @export
+plot.path = function(mypath, stoprule = c("cv", "ic")){
+    
+    ## Basic things
+    stoprule = match.arg(stoprule)
+    if(stoprule == "ic"){
+        if(!("stoprule" %in% objects(mypath))){
+           stop("Run stoptime() on your path object before trying to plot!") 
+        }
+    }
+    
+    ## Plot settings (fixed for now)
+    lcol.beta = "red"
+    lty.beta = 1
+    lwd.beta = 2
+    lwd.abline = 2
+    lty.abline = 2
+    lcol.abline = 'lightgrey'
+    xlab = "Coordinate"
+    ylab = "y"
+    pcol.dat = 'grey50'
+    pch.dat = 16
+    
+    ## Make plot and add lines
+    plot(y, axes=FALSE, xlab = xlab, ylab = ylab, col = pcol.dat, pch = pch.dat)
+    axis(1);axis(2)
+    abline(v=locs, col = lcol.abline, lty=lty.abline, lwd=lwd.abline)
+    lines(f0$beta[,f0$stoptime], col = lcol.beta, lwd=lwd.fl)
+
+    ## Add legend
+    legend("topleft", legend = c("data", "primal fit", "loc"),
+           lty = c(NA, lty.beta, lty.abline),
+           col = c(pcol.dat, lcol.beta, lcol.abline), pch =c(pch.dat, NA,NA))
+}
