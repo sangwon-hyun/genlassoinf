@@ -1,0 +1,357 @@
+# Make sure you're working from [dropboxfolder]/code
+  source("settings.R")
+  source('selectinf/selectiveInference/R/funs.inf.R')
+  source('funs.R')
+  source('testfuns.R')
+  source('dualPathSvd2.R')
+  library(genlasso)
+  ## library(polypath)
+  library(igraph)
+  library(RColorBrewer)
+  verbose = F
+
+#####################
+### Main Plot #######
+#####################
+outputdir = "output"
+#load(file = file.path(outputdir, "paper-2dgraph.Rdata"))
+
+## Leftmost : image when gapsize = 45
+w=4
+h=5
+nn = 10 
+lev2 = 45/15
+A = matrix(0,ncol=nn, nrow = nn)
+A[1:(nn/2),1:(nn/2)] = lev2
+sigma = 15/15
+set.seed(0)
+A.noisy = A + rnorm(nn^2,mean=0,sd=sigma)
+zlim = range(A.noisy)
+greycols = rev(sapply(seq(from=0,to=1,length=12), grey))
+
+pdf(file.path(outputdir,"2dgraph-nonoise.pdf"), width=w,height=h)
+par(mar=c(0,0,3,0))
+image(A, zlim=zlim, col=greycols)
+title(main=bquote(paste("Mean ", (delta == .(lev2)))))
+graphics.off()
+
+pdf(file.path(outputdir,"2dgraph-midnoise.pdf"), width=w,height=h)
+par(mar=c(0,0,3,0))
+image(A.noisy, zlim=zlim, col=greycols)
+title(main=bquote(paste("Data example ", (delta == .(lev2)))))
+graphics.off()
+
+w1 = 1
+h1 = 5
+pdf(file.path(outputdir,"2dgraph-colorgradient.pdf"), width=w1,height=h1)
+par(mar=c(0,0,3,2))
+image.scale(z = A.noisy, zlim=zlim, col=greycols, axis.pos=4)
+graphics.off()
+
+## Rightmost:  QQ plot for p-values
+
+# Combine the results (because they were ran in chunks)
+load(file = file.path(outputdir, paste0("paper-2dgraph-chunk-1.Rdata")))
+pvals.master =  matrix(NA,nrow=nsim,ncol=ngrain)
+for(ichunk in 1:4){
+  print(ichunk)
+  load(file = file.path(outputdir, paste0("paper-2dgraph-chunk-",ichunk,".Rdata")))
+  mychunk = chunks[[ichunk]]
+  pvals.master[,mychunk] = pvals[,mychunk]
+}
+pvals = pvals.master
+
+  # Make qq-plot
+  w=5
+  h=6
+  pdf(file.path(outputdir,"2dgraph-qqplot.pdf"), width=w,height=h)
+  par(mar=c(5.1,4.1,4.1,2.1))
+  unif.p = runif(1000,0,1)
+  cols = brewer.pal(5,"Set1")
+  pch=16
+  for(igrain in 1:length(lev2list)){
+    lev2 = lev2list[igrain]
+    if(igrain != 1 )par(new=T)
+    a = qqplot(x=unif.p, y=pvals[,igrain],plot.it=FALSE)
+    myfun = (if(igrain==1)plot else points)
+    myfun(x=a$y, y=a$x, col=cols[igrain],pch=pch, axes=F, xlab="", ylab="")
+  }
+  axis(2);axis(1)
+  mtext("Observed",2,padj=-4)
+  mtext("Expected",1,padj=4)
+  legend("bottomright", col=cols, pch=rep(pch,2), legend = sapply(c(bquote(delta == .(lev2list[1])), 
+           bquote(delta == .(lev2list[2])),
+           bquote(delta == .(lev2list[3])),
+           bquote(delta == .(lev2list[4])),
+           bquote(delta == .(lev2list[5]))), as.expression))
+  abline(0,1,col='lightgrey')
+  title(bquote(Segment~test~p-values))
+  graphics.off()
+
+
+##############################
+## Power plot (not used now) #
+##############################
+
+#  matplot(y=pvals,x=sigmalist, pch = 1, col=1)
+
+#  # 2nd from right (plot the initial graph)
+#    labelmat = matrix(64,ncol=nn, nrow = nn)
+#    labelmat[1:(nn/2),1:(nn/2)] = 121
+#    labelmat = as.vector(labelmat)
+#  par(mar=c(1,1,1,1))
+#    mylabels = as.numeric(as.factor(do.call(c,lapply(1:nrow(A),function(irow)A[irow,]))))
+#    V(mygraph)$label.cex = 2
+#    plot(mygraph, main = "Initial graph", 
+#        edge.color = edge.colors,
+#        vertex.label = mylabels,
+#        vertex.color = as.vector(labelmat),#rep(1,nn^2),
+#        vertex.size = rep(7,nn^2),
+#        layout = layout.mat)
+
+#  pdf(file.path(outputdir,"2dgraph-powers.pdf"), width=w,height=h)
+#    par(mar=c(5.1,4.1,4.1,2.1))
+#    # Rightmost: Add condit power _after_ stopping rule
+#    # 2nd from right accumulate and plot condit powers (with stopping rule)
+#    #print("NEED TO PROPERLY BONF ADJUST!!")
+#    #title(main="NEED TO PROPERLY BONF ADJUST!!")
+#    
+#    verdicts = (pvals < 0.05/primal.numchanges)
+#    getpow = function(myverdicts){ sum(myverdicts, na.rm=T)}
+#    powers=c()
+#    for(igrain in 1:ngrain){  powers[igrain] = getpow(verdicts[,igrain])/nsim  }
+#    plot(powers~sigmalist, type = 'l', ylab = 'Conditional Power', xlab = bquote(noise~(sigma)), ylim = c(0,1), xlim = c(0,30),axes=F) 
+#    axis(1); axis(2)
+#  graphics.off()
+
+
+
+
+
+
+
+########################
+### Visualize/explore ##
+########################
+
+### make dense 2d graph adjacency matrix
+#  nn=20
+#  Dmat = graph2D_Dmat(nn^2)
+#  mygraph = graph_from_adjacency_matrix(getadjmat.from.Dmat(Dmat), mode="undirected")
+#    
+### plot the initial graph
+#  layout.mat = cbind(rep(1:20,20), rep(1:20,each=20))
+#  loc = 1
+#  edge.colors = rep("lightgrey",2*nn*(nn-1))
+
+### Plot the matrix and scale
+#  sigma = 10
+#  nn = 20
+#  A = matrix(30,ncol=nn, nrow = nn)
+#  A[1:10,1:10] = 60
+#  A.noisy = A + rnorm(nn^2,mean=0,sd=sigma)
+#  
+### Plot the image
+#pdf("~/Desktop/2d-data.pdf")
+#  layout(rbind(rep(2,10),rep(2,10),
+#         matrix(1,nrow=8,ncol=10)))
+#  greycols = sapply(seq(from=0,to=1,length=12), grey)
+#  image(A.noisy/100,zlim = c(0,1), col = greycols)
+#  image.scale(A.noisy/100,zlim=c(0,1), col = greycols)
+#  title(main=signif(sigma,2))
+#  dev.off()
+
+### Plot the graph  
+#  pdf("~/Desktop/2dgraph.pdf", width=14, height=7)
+#  mylabels = as.numeric(as.factor(do.call(c,lapply(1:nrow(A),function(irow)A[irow,]))))
+#  plot(mygraph, main = "Initial graph", 
+#    edge.color = edge.colors,
+#    vertex.label = mylabels,
+#    vertex.color = rep(1,nn^2),
+#    vertex.size = rep(0.2,nn^2),
+#    layout = layout.mat)
+#  dev.off()
+
+
+### Instead, take a single case and see why it DOESN'T work
+#  sigma = 2
+#  maxsteps = 30 # this is a good ballpark
+#  nn = 10
+#  Result = list()
+#  Dmat = graph2D_Dmat(nn^2)
+#  mygraph = graph_from_adjacency_matrix(getadjmat.from.Dmat(Dmat), mode="undirected")
+#  maxsteps = 30
+## Make a noisy nn x nn image
+#  A = matrix(30,ncol=nn, nrow = nn)
+#  A[1:(nn/2),1:(nn/2)] = 60
+#  A.noisy = A + rnorm(nn^2,mean=0,sd=sigma)
+
+## generate data
+#  block.node.values = rep(0,3)#c(0,1,3)
+#  beta0 = do.call(c,lapply(1:nrow(A),function(irow)A[irow,]))
+#  y0 = do.call(c,lapply(1:nrow(A.noisy),function(irow)A.noisy[irow,]))
+
+## fit graph fused lasso using the matrix given by D only
+#  f0 = dualpathSvd2(y0,Dmat,verbose=FALSE, maxsteps = maxsteps)
+#  length(y0)
+#  dim(Dmat)
+#  
+#  
+
+## collect results 
+#  myresult = graph2dsim(f0,y0,mygraph, maxsteps, Dmat,clustersize=clustersize, verbose=FALSE)
+#  mypvals[igrain,isim] = Result[[igrain]][[isim]][[mystep]]$p
+#  
+#  myresult
+
+
+
+
+      # Get stop time  (CONTD)
+##########      stoptime.bic = which.rise(getbic(y0,f0,sigma,maxsteps),consec, n) - 1 # internally defining the `stoptime' to be the step of the algorithm where you stop. the stoptime to be plotted is this+1.
+##########        stoptime.bic = pmin(stoptime.bic,n-consec-1)
+##########        if(stoptime.bic > 0){ # when stoptime is zero, no test is conducted.  
+##########        locs.bic = f0$pathobj$B[1:stoptime.bic]
+##########        Gobj    = getGammat(f0,y0,stoptime.bic+consec,"dualpathSvd",'bic',sigma,consec,maxsteps)
+##########        G       = Gobj$Gammat
+##########        u       = Gobj$u
+##########        G.naive = getGammat(f0,y0,stoptime.bic+consec,"dualpathSvd",maxsteps=maxsteps)
+##########        for(test.step in 1:stoptime.bic){
+##########          d = getdvec(f0,y0,test.step,stoptime.bic,type="segment",usage="dualpathSvd",matchstep=F)
+##########          loc = locs.bic[test.step]
+##########          pvals.bic[ii, isim, loc]       <- pval.fl1d(y0, G,       d, sigma, approx=TRUE, approxtype = "rob", threshold=TRUE, u)
+##########          pvals.bic.naive[ii, isim, loc] <- pval.fl1d(y0, G.naive, d, sigma, approx=TRUE, approxtype = "rob", threshold=TRUE)
+##########          verdicts.bic[ii, isim, loc]       <- (pvals.bic[ii, isim, loc] < (0.05/stoptime.bic))
+##########          verdicts.bic.naive[ii, isim, loc] <- (pvals.bic.naive[ii, isim, loc] < (0.05/stoptime.bic))
+##########        }
+##########        }
+
+
+
+
+
+  # Playing around with  the 
+  # Also obtain the RSS from the projection onto the graph segments.  
+  # The residual subspace basis is the residual 
+  # after projecting the _new_ variable onto the existing ones.
+  # So, if a new group membership occurs, then make a new vector that represents the additional cut
+  
+#  oldmodel = cbind(rep(n,NA))
+#  
+#  
+#  newbasis = rep(0,n); newbasis[newgroup.membership] = 1
+#  residual = resid(lm(newbasis ~ oldmodel-1))
+#  
+#  # update old model
+#  oldmodel = cbind(old)
+#  
+#  # What is the residual? Experiment with this.
+#  v1 = rep(1,6)
+#  v2 = c(rep(0,3),rep(1,3))
+#  B2 = cbind(v1,v2)
+#  B2new = v2
+#  B1 = cbind(v1)
+#  
+#  P2 = B2 %*% solve(t(B2)%*%B2, t(B2)) # Better to do it with QR? OH WELL..
+#  P1 = B1 %*% solve(t(B1)%*%B1, t(B1))
+#  y = rnorm(6,0,1)
+#  plot(y)
+#  lines(P1%*%y)
+#  lines(P2%*%y,col='blue')
+#  Pr = P2 - P1
+#  lines(Pr%*%y,col='skyblue')
+#  s = svd(Pr)
+#  matplot(s$u,type='o')
+#  
+#  r = resid(lm(B2new ~ B1-1)) 
+#  Pr2 = r %*% t(r) / sum(r^2)
+#  
+#    
+#}
+
+
+
+
+
+
+#        # Code to help check why polyhedron is wrong
+#        r = model.info$residuals[[11]]
+#        Pr = r %*% t(r) / sum((t(r) %*% r))
+#        
+#        # toy example
+#        y = X2*10+ rnorm(length(X2),01)
+#        X1 = rep(1,20)
+#        X2 = c(rep(1,15),rep(0,5))
+#        r = resid(lm(X2~X1-1))
+#        Pr = r %*% t(r) / sum((t(r) %*% r))
+#        OrthPr = diag(length(y)) - Pr
+#        plot(y)
+#        points(OrthPr%*%y,col='blue')
+#        
+#        
+#        
+#        
+#        plot(y0,ylim=c(-60,60))
+#        points(Pr %*%y0, col = 'blue')
+#        
+#        sum((Pr %*% y0)^2)
+#        
+#        m1 = model.info$models[[10]]
+#        P1 = m1 %*% solve(t(m1) %*% m1, t(m1))
+#        RSS1 = sum(((diag(length(y0)) - P1) %*% y0)^2)
+#        m2 = model.info$models[[11]]
+#        P2 = m2 %*% solve(t(m2) %*% m2, t(m2))
+#        RSS2 = sum(((diag(length(y0)) - P2) %*% y0)^2)
+
+#        RSS1 - RSS2
+#        
+#        tail(u)        
+#        u[length(u)-1]
+#        sqrt( sigma^2 * log(length(y0)) )
+
+#        BIC1 = RSS1 + sigma^2 * log(length(y0))  * 1
+#        BIC2 = RSS2 + sigma^2 * log(length(y0))  * 2
+#        BIC1
+#        BIC2
+#        bic
+
+
+
+
+
+
+
+## Aggregate and plot p-values
+#load(file = file.path(outputdir, "test-2dgraph.Rdata"))
+#  pvals = matrix(NA,ncol=nsim,nrow =ngrain)
+#  mystep=1
+#  for(igrain in 1:ngrain){
+#    for(isim in 1:nsim){
+#      grp1 = rep(1:5,5)+rep(c(0:4)*10,each=5)
+#      grp2 = (1:100)[!((1:100)%in%grp1)]
+#      sim.groups = Result[[igrain]][[isim]][[mystep]]$groups
+#      if(all(sim.groups %in% list(grp1,grp2))){
+#        pvals[igrain,isim] = Result[[igrain]][[isim]][[mystep]]$p
+#      }
+#    }
+#  }
+#  
+#  pvals.new = matrix(NA,ncol=nsim,nrow=ngrain)
+#  mystep=1
+#  for(igrain in 1:ngrain){
+#    for(isim in 1:nsim){
+#      grp1 = rep(1:5,5)+rep(c(0:4)*10,each=5)
+#      grp2 = (1:100)[!((1:100)%in%grp1)]
+#      sim.groups = Result[[igrain]][[isim]][[mystep]]$groups
+#      if(all(sim.groups %in% list(grp1,grp2))){
+#        pvals[igrain,isim] = Result[[igrain]][[isim]][[mystep]]$p
+#      }
+#    }
+#  }
+  
+#  avg = apply(pvals, 1, mean, na.rm = T)
+#  sdev = apply(pvals, 1, sd, na.rm=T)
+#  matplot(pvals)
+#  plot(x,avg, ylim = c(-0.2,1.2))
+#  arrows(x, avg-sdev, x, avg+sdev, length=0.05, angle=90, code=3)
+#  abline(h=1)

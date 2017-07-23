@@ -23,7 +23,7 @@
 ##' @param cdtol Tolerance for cdtol; defaults to 1e-4
 ##' @export
 
-dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
+dualpathSvd3 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
                         rtol=1e-7, btol=1e-7, verbose=FALSE, object=NULL,
                         ctol=1e-10, cdtol=1e-4, do.gc=F){
 
@@ -32,13 +32,6 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
 
   nk = 0
   ss = list() # list of ss
-  tab = matrix(NA,nrow=maxsteps,ncol=6) # list of where
-  colnames(tab) = rev(c("after hit vs leave (leave wins)",
-                     "after hit vs leave (hit wins)",
-                     "after leave times",
-                     "after leave eligibility (c<0)",
-                     "after hitting event",
-                     "after viable hits"))
 
   # If we are starting a new path
   if (is.null(object)) {
@@ -46,7 +39,7 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
     n = ncol(D)
 
     # Initialize Gamma matrix (work in progress)
-    # G = Matrix(NA,nrow= maxsteps*ncol(D)*4 ,ncol=n)
+    G = Matrix(NA,nrow= maxsteps*ncol(D)*4 ,ncol=n)
 
     # Compute the dual solution at infinity, and
     # find the first critical point
@@ -89,14 +82,11 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
     tDinv = MASS::ginv(as.matrix(t(D)))
 
     # rows to add, for first hitting time (no need for sign-eligibility--just add all sign pairs)
-    #G = diag(Sign(uhat)  %*% tDinv)
     M = matrix(s*tDinv[ihit,], nrow(tDinv[-ihit,]), n, byrow=TRUE)
-    G = rbind(M + tDinv[-ihit,],
-                   M - tDinv[-ihit,])
-
-    tab[k,2] = nrow(G)
-
-    nk = nrow(G)
+    newrows = rbind(M + tDinv[-ihit,],
+                    M - tDinv[-ihit,])
+    G[nk[length(nk)]+(1:nrow(newrows))] = newrows
+    nk = c(nk,nrow(G))
 
     # Other things to keep track of, but not return
     r = 1                      # Size of boundary set
@@ -171,16 +161,21 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
         shit = shits[ihit]
 
         # Gamma Matrix!
-        # rows to add, for viable hitting signs:
+        # new rows to add, for viable hitting signs:
         tDinv = D3
-        rows.to.add = (if(length(shits)>1){
+        newrows = (if(length(shits)>1){
           do.call(rbind, lapply(1:length(shits), function(ii){shits[ii] * tDinv[ii,]  }))
         } else {
           shits* tDinv
         })
 
-        G = rbind(G, rows.to.add)
-        tab[k,1] = nrow(G)
+        ## Add those rows
+        if(nk[length(nk)] + nrow(newrows) > nrow(G)){
+            emptyrows = Matrix(NA,nrow= nrow(G),ncol=n)
+            G = rbind(G, emptyrows)
+        }
+        G[nk[length(nk)]+(1:nrow(newrows))] = newrows
+        nk = c(nk,nrow(G))
 
         # rows to add, for hitting event: (This is just dividing each row of tDinv by corresponding element of tDinv%*%Ds+shit)
         A = asrowmat(D3/(b+shits)) # tDinv / as.numeric(tDinv %*% Ds + shits)
@@ -188,9 +183,16 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
           nleft = nrow(A[-ihit,])
           if(is.null(nleft)) nleft = 1
           M = matrix(A[ihit,], nrow = nleft, ncol = n, byrow = TRUE)
-          G = rbind(G, M - A[-ihit,])
+          newrows = M - A[-ihit,]
+
+          ## Add those rows
+          if(nk[length(nk)] + nrow(newrows) > nrow(G)){
+              emptyrows = Matrix(NA,nrow= nrow(G),ncol=n)
+              G = rbind(G, emptyrows)
+          }
+          G[nk[length(nk)]+(1:nrow(newrows))] = newrows
+          nk = c(nk,nrow(G))
         }
-        tab[k,2] = nrow(G)
       }
 
       ##########
@@ -260,26 +262,39 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
 
         #if( (length(Di)!=0) & (which(closeto.lambda) %in% which(Di))) print("closeto.lambda replacement SHOULD have happenned (but didn't).")
 
-        # add rows that ensure c<0 #(only in )
-        G <- rbind(G, gmat[Ci&Di,]*(-1),
-                                gmat[(!Ci)&Di,])
-#        print("after leave eligibility (c<0)")
-#        print(nrow(G))
-        tab[k,3] = nrow(G)
+        # new rows that ensure c<0 #(only in )
+        newrows1 = rbind(gmat[Ci&Di,]*(-1),
+                         gmat[(!Ci)&Di,])
+
+        ## Add those rows
+        if(nk[length(nk)] + nrow(newrows) > nrow(G)){
+            emptyrows = Matrix(NA,nrow= nrow(G),ncol=n)
+            G = rbind(G, emptyrows)
+        }
+        G[nk[length(nk)]+(1:nrow(newrows))] = newrows
+        nk = c(nk,nrow(G))
+
 
         # get rid of NA rows in G (temporary fix)
         missing.rows = apply(G, 1, function(row) any(is.na(row)))
         if(sum(missing.rows)>=1){ G <- G[-which(missing.rows),] }
+        nk[length(nk)] = nrow(G)
 
-        # add rows for maximizer
+        # new rows for maximizer
         CDi = (Ci & Di)
         CDi[ileave] = FALSE
         CDind = which(CDi)
 
-        G <- rbind(G, gd[rep(ileave,length(CDind)),] - gd[CDind,])
-#        print("after leave times")
-#        print(nrow(G))
-        tab[k,4] = nrow(G)
+        newrows = gd[rep(ileave,length(CDind)),] - gd[CDind,]
+
+        ## Add those rows
+        if(nk[length(nk)] + nrow(newrows) > nrow(G)){
+            emptyrows = Matrix(NA,nrow= nrow(G),ncol=n)
+            G = rbind(G, emptyrows)
+        }
+        G[nk[length(nk)]+(1:nrow(newrows))] = newrows
+        nk = c(nk,nrow(G))
+
       }
       ##########
       # Stop if the next critical point is negative
@@ -302,14 +317,17 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
 
         # add row to Gamma to characterize the hit coming next
         if(!approx)  {
-          # this is literally h_k - l_k > 0
-          G = rbind(G,  A[ihit,] - gd[ileave,])
-#          print("after hit vs leave (hit wins)")
-#          print(nrow(G))
-          tab[k,5] = nrow(G)
-        }
+            ## this is literally h_k - l_k > 0
+            newrows = A[ihit,] - gd[ileave,]
 
-        nk = c(nk,nrow(G))
+            ## Add those rows
+            if(nk[length(nk)] + nrow(newrows) > nrow(G)){
+                emptyrows = Matrix(NA,nrow= nrow(G),ncol=n)
+                G = rbind(G, emptyrows)
+            }
+            G[nk[length(nk)]+(1:nrow(newrows))] = newrows
+            nk = c(nk,nrow(G))
+        }
 
         # Update all of the variables
         r = r+1
@@ -339,12 +357,21 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
         u[,k] = uhat
 
 
-        # add row to Gamma to characterize the leave coming next
+        # new row to Gamma to characterize the leave coming next
         if(!approx)  {
-          G = rbind(G, - A[ihit,] + gd[ileave,])
-          tab[k,5] = nrow(G)
+          newrows = rbind(- A[ihit,] + gd[ileave,])
+
+          ## Add those rows
+          if(nk[length(nk)] + nrow(newrows) > nrow(G)){
+              emptyrows = Matrix(NA,nrow= nrow(G),ncol=n)
+              G = rbind(G, emptyrows)
+          }
+          G[nk[length(nk)]+(1:nrow(newrows))] = newrows
+          nk = c(nk,nrow(G))
         }
-        nk = c(nk,nrow(G))
+
+
+
 
         # Update all of the variables
         r = r-1
@@ -412,59 +439,9 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
 
     mypath = list(lambda=lams,beta=beta,fit=beta,hit=h,df=df,y=y,ss=ss,
                   states=states, completepath=completepath,bls=y,
-                  pathobjs=pathobjs, nk = nk, action=action, tab=tab, D = D,
+                  pathobjs=pathobjs, nk = nk, action=action, D = D,
                   Gobj.naive=list(G=G,u=u), Gobj.stoprule = NULL)
     class(mypath) <- "path"
     return(mypath)
-}
-
-
-##' Function generic for stop_path()
-stop_path <- function(x,...) UseMethod("stop_path")
-
-##' Embed stopping time into the path.
-##' @param obj A naive |path| object
-##' @param sigma Standard deviation generating the data, in \code{obj$y}
-##' @param stoprule Either one of \code{c("bic","ebic","aic")}. Defaults to \code{"bic"}.
-##' @param consec How many rises do you want to stop at? Defaults to 2.
-##' @examples
-##' n = 60
-##' sigma=1
-##' consec = 2
-##' D = makeDmat(n,type='tf',ord=0)
-##' set.seed(1)
-##' y0 = rep(c(0,1),each=n/2) + rnorm(n,0,sigma)
-##' f0 = dualpathSvd2(y0,D,maxsteps,approx=T)
-##' f0 = stop_path(f0)
-##' @export
-stop_path.path = function(obj, sigma, stoprule = "bic", consec = 2){
-
-    ## Basic checks
-    stopifnot(is.null(obj$Gobj.stoprule))
-
-    ## Get bic stopping time
-    ic = get.modelinfo(obj, consec=2, sigma=sigma, stoprule = stoprule)$ic
-    stoptime = which.rise(ic,consec) - 1
-    stoptime = pmin(stoptime, length(obj$y)-consec-1)
-    stopifnot(stoptime>0)
-    locs.bic = obj$pathobj$B[1:stoptime]
-
-    ## Get object for stopping time.
-    new.Gobj = getGammat.with.stoprule(obj=obj, y=obj$y,
-                                   condition.step=stoptime+consec,
-                                   type='tf', stoprule = stoprule, sigma=sigma,
-                                   consec=consec, maxsteps=maxsteps, D=D)
-    obj$Gobj.stoprule = list(G=new.Gobj$G, u=new.Gobj$u)
-
-    ## Add stopping time to path object
-    obj$stoptime = matrix(stoptime,
-                          dimnames=list(NULL,paste(stoprule, "with consec=", consec)))
-    obj$stoprule = stoprule
-    obj$consec = consec
-    obj$stoppedmodel = obj$states[[stoptime+1]]
-
-    ## Return updated path object! Yay!
-    class(obj) <- "path"
-    return(obj)
 }
 

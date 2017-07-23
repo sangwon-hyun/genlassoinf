@@ -1,0 +1,64 @@
+## Make sure you're working from [dropboxfolder]/code
+source("settings.R")
+source('funs.R')
+source('testfuns.R')
+source('selectinf/selectiveInference/R/funs.inf.R')
+source('dualPathSvd2.R')
+
+## obtain things that will help calculate power
+  n = 60 # 20,40,60,80 
+  consec = 2
+  nsim = 2000#50000
+  ngrain = 15
+  lev1 = 0;  lev2 = 1
+  maxsteps = n-2
+  sigma = 1
+  lev2max = 4
+  lev2list = seq(from=0, to = lev2max,length=ngrain)
+  D = makeDmat(n,'trend.filtering',ord=0)
+    
+
+  # stoptimes & pval & verdict storage
+  stoptimes.bic = stoptimes.ebic = stoptimes.aic = array(NA, c(ngrain,nsim))
+  pvals.bic = pvals.bic.decluttered = pvals.ebic = pvals.aic = 
+  verdicts.bic = verdicts.bic.decluttered = verdicts.ebic = verdicts.aic = array(NA,c(ngrain, nsim, n))
+  pvals.fixed1 = pvals.fixed2 = verdicts.fixed1 = verdicts.fixed2 = array(NA,c(ngrain, nsim, n))
+  pvals.oracle = verdicts.oracle = array(NA,c(ngrain,nsim))
+
+  for(igrain in 1:ngrain){
+    cat('\n',"one-jump simulations",'\n')
+    cat('\n', igrain, "out of", ngrain, "for sample size" , n, "and maximum lev2", lev2max,'\n')
+    lev2 = lev2list[igrain]
+    for(isim in 1:nsim){
+      cat('\r', isim, "out of", nsim)
+
+      # Break if we have enough hits
+      loc = n/2
+      nhit.enough = 1000
+      enough.hits.at.loc = function(verdict.array, igrain, loc, nhit.enough){ sum(!is.na(verdict.array[igrain,,loc])) > nhit.enough }
+      if(all(unlist(lapply(list(verdicts.bic, verdicts.ebic, verdicts.aic), enough.hits.at.loc, igrain, loc, nhit.enough)))) {
+        break
+      }
+
+      # Generate data + path
+      beta0 = rep(c(lev1,lev2),each=n/2)
+      y0    = beta0 + rnorm(n, 0,sigma)
+      f0    = dualpathSvd2(y0,D,maxsteps,approx=T)
+      
+      
+      # store oracle
+      brk = n/2
+      dif = abs(mean(y0[(brk+1):n]) - mean(y0[1:brk]))
+      lvl = 0.05/2
+      n1 = n2 = n/2
+      z_crit = qnorm(1-lvl)*sigma*sqrt(1/n1 + 1/n2)
+      verdicts.oracle[igrain,isim] = dif > z_crit
+      pvals.oracle[igrain,isim]    = 1-pnorm(dif, mean=0, sd = sigma*sqrt(1/n1^2 + 1/n2^2))
+    }
+    
+    # save
+    obj.list1 = c("pvals.oracle","verdicts.oracle",
+                   "sigma","nsim","ngrain","lev1","lev2","n", "lev2list","lev2max")#"sigmalist")
+    save(list=obj.list1, file=file.path(outputdir, paste0("paper-BIC-onejump-oracle-segmentsize", n/2, ".Rdata")))
+  }
+

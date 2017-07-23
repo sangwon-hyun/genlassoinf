@@ -1,0 +1,676 @@
+## Make sure you're working from [dropboxfolder]/code
+source("settings.R")
+source('funs.R')
+source('examples/testfuns.R')
+source('selectinf/selectiveInference/R/funs.inf.R')
+source('dualPathSvd2.R')
+
+## obtain things that will help calculate power
+  n = 60 # 20,40,60,80 
+  consec = 2
+  nsim = 2000#50000
+  ngrain = 15
+  lev1 = 0;  lev2 = 1
+  maxsteps = n-2
+  sigma = 1
+  lev2max = 4
+  lev2list = seq(from=0, to = lev2max,length=ngrain)
+  D = makeDmat(n,'trend.filtering',ord=0)
+    
+
+  # stoptimes & pval & verdict storage
+  stoptimes.bic = stoptimes.ebic = stoptimes.aic = array(NA, c(ngrain,nsim))
+  pvals.bic = pvals.bic.decluttered = pvals.ebic = pvals.aic = 
+  verdicts.bic = verdicts.bic.decluttered = verdicts.ebic = verdicts.aic = array(NA,c(ngrain, nsim, n))
+  pvals.fixed1 = pvals.fixed2 = verdicts.fixed1 = verdicts.fixed2 = array(NA,c(ngrain, nsim, n))
+  pvals.oracle = verdicts.oracle = array(NA,c(ngrain,nsim))
+
+  for(igrain in 1:ngrain){
+    cat('\n',"one-jump simulations",'\n')
+    cat('\n', igrain, "out of", ngrain, "for sample size" , n, "and maximum lev2", lev2max,'\n')
+    lev2 = lev2list[igrain]
+    for(isim in 1:nsim){
+      cat('\r', isim, "out of", nsim)
+
+      # Break if we have enough hits
+      loc = n/2
+      nhit.enough = 1000
+      enough.hits.at.loc = function(verdict.array, igrain, loc, nhit.enough){ sum(!is.na(verdict.array[igrain,,loc])) > nhit.enough }
+      if(all(unlist(lapply(list(verdicts.bic, verdicts.ebic, verdicts.aic), enough.hits.at.loc, igrain, loc, nhit.enough)))) {
+        break
+      }
+
+      # Generate data + path
+      beta0 = rep(c(lev1,lev2),each=n/2)
+      y0    = beta0 + rnorm(n, 0,sigma)
+      f0    = dualpathSvd2(y0,D,maxsteps,approx=T)
+      
+      mm = get.modelinfo(f0,y0,sigma,maxsteps,D=D,stoprule='bic')
+      bic = mm$ic      
+      stoptime.bic = which.rise(bic,consec) - 1 # internally defining the `stoptime' to be the step of the algorithm where you stop. the stoptime to be plotted is this+1.
+      stoptime.bic = pmin(stoptime.bic, n-consec-1)
+            
+      if(stoptime.bic > 0){ 
+      locs.bic = f0$pathobj$B[1:stoptime.bic]
+      Gobj    = getGammat.with.stoprule(obj=f0,y=y0,condition.step=stoptime.bic+consec,
+                                        type='tf',stoprule='bic',sigma=sigma,consec=consec,maxsteps=maxsteps, D=D)
+      G       = Gobj$Gammat
+      u       = Gobj$u
+      
+      # Non-decluttered
+      for(test.step in 1:stoptime.bic){
+        d       = getdvec(f0,y0,test.step,stoptime.bic,type="segment")
+        loc     = locs.bic[test.step]
+        pval    = pval.fl1d(y0, G, d, sigma, approx=TRUE, approxtype = "rob", threshold=TRUE, u)
+        verdict = (pval < (0.05/stoptime.bic))
+        pvals.bic[igrain, isim, loc]       <- pval
+        verdicts.bic[igrain, isim, loc]    <- verdict
+      }
+      
+      # Decluttered
+      states = get.states(f0$action)
+      final.model = states[[stoptime.bic+1]]
+      final.model.signs = f0$ss[[stoptime.bic+1]]
+      final.model.decluttered = declutter(final.model)
+
+      for(ii in 1:length(final.model.decluttered)){
+        test.knot      = final.model.decluttered[ii]
+        adj.knot       = final.model.decluttered
+        test.knot.sign = final.model.signs[which(final.model == test.knot)]
+        v =     make.v.tf.fp(test.knot = test.knot,
+                             adj.knot  = adj.knot,
+                             test.knot.sign = test.knot.sign,#f1$adj.knot,
+                             D = D)        
+        loc     = test.knot
+        pval    = pval.fl1d(y0,G,dik=v,sigma,u=u)
+        verdict = (pval < 0.05/length(final.model.decluttered))
+        pvals.bic.decluttered[igrain, isim, loc]    = pval
+        verdicts.bic.decluttered[igrain, isim, loc] = verdict
+      }
+      }
+
+
+      # ebic: extended bic using factor of 1E-5
+      ebic.fac=1E-3
+      ebic = get.modelinfo(f0,y0,sigma,maxsteps,D=D,stoprule='ebic',ebic.fac=ebic.fac)$ic      
+      stoptime.ebic = which.rise(ebic,consec) - 1 
+      stoptime.ebic = pmin(stoptime.ebic,n-consec-1)
+      if(stoptime.ebic > 0){
+      locs.ebic= f0$pathobj$B[1:stoptime.ebic]
+      Gobj    = getGammat.with.stoprule(obj=f0,y=y0,condition.step=stoptime.ebic+consec,
+                                        type='tf',stoprule='ebic',sigma=sigma,consec=consec,maxsteps=maxsteps, D=D, ebic.fac=ebic.fac)
+      G       = Gobj$Gammat
+      u       = Gobj$u
+      for(test.step in 1:stoptime.ebic){
+        d = getdvec(f0,y0,test.step,stoptime.ebic,type="segment")
+        loc = locs.ebic[test.step]
+        pval    = pval.fl1d(y0, G, d, sigma, approx=TRUE, approxtype = "rob", threshold=TRUE,u)
+        verdict = (pval <  (0.05/stoptime.ebic))
+        pvals.ebic[igrain, isim, loc]       <- pval
+        verdicts.ebic[igrain, isim, loc]    <- verdict
+      }
+      }
+
+      # aic
+      aic = get.modelinfo(f0,y0,sigma,maxsteps,D=D,stoprule='aic')$ic 
+      stoptime.aic = which.rise(aic,consec)-1
+      stoptime.aic = pmin(stoptime.aic, n-consec-1)
+      if(stoptime.aic > 0){ 
+      locs.aic = f0$pathobj$B[1:stoptime.aic]
+      Gobj    = getGammat.with.stoprule(obj=f0,y=y0,condition.step=stoptime.aic+consec,
+                                      type='tf',stoprule='aic',sigma=sigma,consec=consec,maxsteps=maxsteps, D=D)
+      G       = Gobj$Gammat
+      u       = Gobj$u
+      for(test.step in 1:stoptime.aic){
+        d = getdvec(f0,y0,test.step,stoptime.aic,type="segment")
+        loc     = locs.aic[test.step]
+        pval    = pval.fl1d(y0, G,       d, sigma, approx=TRUE, approxtype = "rob", threshold=TRUE,u)
+        verdict = (pval <  (0.05/stoptime.aic))
+        pvals.aic[igrain, isim, loc]          <- pval
+        verdicts.aic[igrain, isim, loc]       <- verdict
+      }
+      }
+      
+      # fixed stop times
+      for( fixedstoptime in 1:2 ){
+        G.truth = getGammat.naive(f0,y0,fixedstoptime)$G
+        for( test.step in 1:fixedstoptime ){
+          d = getdvec(f0,y0,test.step,fixedstoptime,type="segment")
+          loc = f0$pathobj$B[test.step]
+          pval = pval.fl1d(y0, G.truth, d, sigma, approx=TRUE, approxtype = "rob", threshold=TRUE)
+          verdict = (pval < (0.05/fixedstoptime))
+          if ( fixedstoptime == 1 ){
+            pvals.fixed1[igrain, isim, loc]    <- pval
+            verdicts.fixed1[igrain, isim, loc] <- verdict
+          } else if ( fixedstoptime == 2 ){
+            pvals.fixed2[igrain, isim, loc]    <- pval
+            verdicts.fixed2[igrain, isim, loc] <- verdict
+          } else { print('not coded yet.. but this will never happen :)') }
+        }
+      }
+
+      # store stoptimes
+      stoptimes.bic[igrain,isim] = stoptime.bic
+      stoptimes.ebic[igrain,isim] = stoptime.ebic
+      stoptimes.aic[igrain,isim] = stoptime.aic
+      
+      # store oracle
+      brk = n/2
+      dif = abs(mean(y0[(brk+1):n]) - mean(y0[1:brk]))
+      lvl = 0.05/1
+      n1 = n2 = n/2
+      z_crit = qnorm(1-lvl)*sigma*sqrt(1/n1 + 1/n2)
+      verdicts.oracle[igrain,isim] = dif > z_crit
+      pvals.oracle[igrain,isim]    = 1-pnorm(dif, mean=0, sd = sigma*sqrt(1/n1^2 + 1/n2^2))
+    }
+    
+    # save
+    obj.list1 = c("pvals.bic","pvals.bic.decluttered","pvals.ebic","pvals.aic",
+                  "verdicts.bic","verdicts.bic.decluttered","verdicts.ebic","verdicts.aic",
+                  "pvals.fixed1","pvals.fixed2","verdicts.fixed1","verdicts.fixed2",
+                  "pvals.oracle","verdicts.oracle",
+                  "stoptimes.bic","stoptimes.ebic","stoptimes.aic",
+                   "sigma","nsim","ngrain","lev1","lev2","n", "lev2list","lev2max")#"sigmalist")
+    save(list=obj.list1, file=file.path(outputdir, paste0("paper-BIC-onejump-segmentsize", n/2, ".Rdata")))
+  }
+
+ 
+##############################################################
+### calculate condit power at each correct jump location  ####
+##############################################################
+#   load(file=file.path(outputdir, paste0("bic-onejump-segmentsize-allbics-feb2016", n/2, ".Rdata")))
+#    powers.bic = powers.bic.naive = 
+#    powers.bic2 = powers.bic2.naive = 
+#    powers.ebic = powers.ebic.naive = powers.ebic.strong = 
+#    powers.sbic = powers.sbic.naive = 
+#    powers.aic = powers.aic.naive = array(NA,c(ngrain,n))
+#    powers.fixed1 = powers.fixed2 = array(NA,c(ngrain,n))
+#    powers.oracle = powers.proxbic = powers.proxbic2 = powers.proxebic = powers.proxsbic = powers.proxaic = array(NA, ngrain)
+#    # For each location,
+#    for(igrain in 1:ngrain){
+#      # get exact condit powers
+#      getpow = function(verdicts,igrain,loc){  return(sum(verdicts[igrain,,loc],na.rm=T)/pmax(1,sum(!is.na(verdicts[igrain,,loc]))))   }
+#      for(loc in 1:n){
+#        powers.bic[igrain,loc]        = getpow(verdicts.bic,igrain,loc)
+#        powers.bic.naive[igrain,loc]  = getpow(verdicts.bic.naive,igrain,loc)
+#        powers.bic2[igrain,loc]       = getpow(verdicts.bic2,igrain,loc)
+#        powers.bic2.naive[igrain,loc] = getpow(verdicts.bic2.naive,igrain,loc)
+#        powers.ebic[igrain,loc]       = getpow(verdicts.ebic,igrain,loc)
+#        powers.ebic.strong[igrain,loc]= getpow(verdicts.ebic.strong,igrain,loc)
+#        powers.ebic.naive[igrain,loc] = getpow(verdicts.ebic.naive,igrain,loc)
+#        powers.sbic[igrain,loc]       = getpow(verdicts.sbic,igrain,loc)
+#        powers.sbic.naive[igrain,loc] = getpow(verdicts.sbic.naive,igrain,loc)
+#        powers.aic[igrain,loc]        = getpow(verdicts.aic,igrain,loc)
+#        powers.aic.naive[igrain,loc]  = getpow(verdicts.aic.naive,igrain,loc)
+#        powers.fixed1[igrain,loc]     = getpow(verdicts.fixed1, igrain,loc)
+#        powers.fixed2[igrain,loc]     = getpow(verdicts.fixed2, igrain,loc)
+#      }
+#      
+#      # get approximate powers at true break coordinate
+#      loc = n/2
+#      proxwidth = .15*n#log(n) #2
+#      proxlocs = (loc-proxwidth):(loc+proxwidth)
+#      proxbic.verdict = proxbic2.verdict = proxebic.verdict = proxsbic.verdict = proxaic.verdict = c()
+#      for(isim in 1:nsim){
+#       # bic
+#        verdicts = verdicts.bic[igrain,isim,proxlocs]
+#        proxbic.verdict[isim] = (if(!all(is.na(verdicts))) any(verdicts,na.rm=T) else NA)
+#       # bic2
+#        verdicts = verdicts.bic2[igrain,isim,proxlocs]
+#        proxbic2.verdict[isim] = (if(!all(is.na(verdicts))) any(verdicts,na.rm=T) else NA)
+#       # ebic
+#        verdicts = verdicts.ebic[igrain,isim,proxlocs]
+#        proxebic.verdict[isim] = (if(!all(is.na(verdicts))) any(verdicts,na.rm=T) else NA)
+#       # sbic
+#        verdicts = verdicts.sbic[igrain,isim,proxlocs]
+#        proxsbic.verdict[isim] = (if(!all(is.na(verdicts))) any(verdicts,na.rm=T) else NA)
+#       # aic
+#        verdicts = verdicts.aic[igrain,isim,proxlocs]
+#        proxaic.verdict[isim] = (if(!all(is.na(verdicts))) any(verdicts,na.rm=T) else NA)
+#      }
+#      powers.proxbic[igrain] = sum(proxbic.verdict, na.rm=T)/pmax(sum(!is.na(proxbic.verdict)),1)
+#      powers.proxbic2[igrain] = sum(proxbic2.verdict, na.rm=T)/pmax(sum(!is.na(proxbic2.verdict)),1)
+#      powers.proxebic[igrain] = sum(proxebic.verdict, na.rm=T)/pmax(sum(!is.na(proxebic.verdict)),1)
+#      powers.proxsbic[igrain] = sum(proxsbic.verdict, na.rm=T)/pmax(sum(!is.na(proxsbic.verdict)),1)
+#      powers.proxaic[igrain] = sum(proxaic.verdict, na.rm=T)/pmax(sum(!is.na(proxbic.verdict)),1)
+
+#      # oracle power at true break coordinate
+#      powers.oracle[igrain] = sum(verdicts.oracle[igrain,],na.rm=T)/nsim
+#    }
+#    obj.list2 = c("powers.bic", "powers.bic.naive", 
+#                  "powers.bic2", "powers.bic2.naive",
+#                  "powers.ebic", "powers.ebic.naive",
+#                  "powers.sbic", "powers.sbic.naive",
+#                  "powers.aic", "powers.aic.naive",
+#                  "powers.fixed1", "powers.fixed2", "powers.oracle",
+#                  "powers.proxbic", "powers.proxbic2","powers.proxaic")
+#    save(list=c(obj.list1,obj.list2), file=file.path(outputdir, paste0("bic-onejump-segmentsize-allbics", n/2, ".Rdata")))
+#  }
+#  
+
+## change stoptimes to conditional values (only the values that were tested)
+#    loc = n/2
+#    load(file=file.path(outputdir, paste0("bic-onejump-segmentsize-allbics", n/2, ".Rdata")))
+
+#    stoptimes.bic.cond = stoptimes.bic
+#    for(jj in 1:ngrain){ stoptimes.bic.cond[jj,is.na(verdicts.bic[jj,,loc])] = NA }
+#    stoptimes.bic2.cond = stoptimes.bic2
+#    for(jj in 1:ngrain){ stoptimes.bic2.cond[jj,is.na(verdicts.bic2[jj,,loc])] = NA }
+#    stoptimes.ebic.cond = stoptimes.ebic
+#    for(jj in 1:ngrain){ stoptimes.ebic.cond[jj,is.na(verdicts.ebic[jj,,loc])] = NA }
+#    stoptimes.sbic.cond = stoptimes.sbic
+#    for(jj in 1:ngrain){ stoptimes.sbic.cond[jj,is.na(verdicts.sbic[jj,,loc])] = NA }
+#    stoptimes.aic.cond = stoptimes.aic
+#    for(jj in 1:ngrain){ stoptimes.aic.cond[jj,is.na(verdicts.aic[jj,,loc])] = NA }
+
+
+
+
+
+
+
+
+
+
+
+### make plot of powers
+##  nlist = 2*c(10,40,90) #n = 10  
+
+#    n=20
+#    load(file=file.path(outputdir, paste0("bic-onejump-segmentsize-allbics", n/2, ".Rdata")))
+#    pdf(file.path(outputdir,paste0("bic-onejump-segmentsize-allbics", n/2, ".pdf")), width=12, height=12)
+#    mm = rbind(c(1,1,2,2,2,2),
+#            c(1,1,2,2,2,2))
+##           c(3,3,4,4,4,4),
+##           c(3,3,4,4,4,4)  )
+#    layout(mm)
+
+#    # make data plot
+#    set.seed(0)
+#    sigma = .5
+#    lev1= 0
+#    pt.cex=.5
+#    ylim = c(-1,2)
+#    #beta0 = c(rep(5,10),rep(3,10),rep(15,10),rep(0,10),rep(5,10),rep(0,10))
+#    beta0 = c(rep(0,10),rep(1,10))
+#    set.seed(2)
+#    y0    = beta0 + rnorm(n=length(beta0),sd=sigma)
+#    plot(y0, axes=F, cex=pt.cex, ylim = ylim, xlab = 'coordinate', ylab = 'y')
+#    lines(beta0, col='red',lwd=1.5)
+#    abline(v = 20, lty=2, col='lightgrey')
+#    text(x=21,y=-8, labels=expression(i[k]))
+#    axis(1); axis(2);
+#    title(main = expression(paste("Data (y =",  theta + epsilon, ") and Test Location (", i[k],")")))
+#    legend("topright", pch = c(1,NA), pt.cex=pt.cex, lty = c(NA,2), col = c('black', 'lightgrey'), legend = c("data", "test location"))
+#    
+#    
+#    # Make power plot
+#      loc = n/2
+#      xlim = c(0,max(sigmalist))
+#      plot(powers.bic[,loc] ~ sigmalist, type = 'o', lwd=2, ylim = c(0,1.5), xlim = xlim, axes = F, xlab="noise(sd)", ylab = "condit. powers", pch = "b")
+#      title("Conditional Power at correct location, for one-jump")
+#      axis(1); axis(2)
+#      
+#      # more lines
+#      lines(powers.bic2[,loc] ~ sigmalist, type = 'b', lwd=1, pch = "2")
+#      lines(powers.ebic[,loc] ~ sigmalist, type = 'b', lwd=1, pch = "e")
+#      lines(powers.ebic.strong[,loc] ~ sigmalist, type = 'b', lwd=1, pch = "e")
+#      # lines(powers.sbic[,loc] ~ sigmalist, type = 'b', lwd=1, pch = "s")
+#      # lines(powers.bic.naive[,loc] ~ sigmalist, type = 'l', lwd=1)
+
+#      lines(powers.proxbic ~ sigmalist, type = 'l', lty=2)
+#      lines(powers.proxbic2 ~ sigmalist, type = 'b', lty=2,pch = "2")
+#      lines(powers.proxebic ~ sigmalist, type = 'b', lty=2,pch = "e")
+#      
+#      lines(powers.aic[,loc] ~ sigmalist, type = 'l', col = 'red', lwd=2)
+#      #lines(powers.aic.naive[,loc] ~ sigmalist, type = 'l', col='red',lwd=1)
+#      lines(powers.proxaic ~ sigmalist, type = 'l', col = 'red', lty=2)
+
+#      lines(powers.fixed1[,loc] ~ sigmalist, type = 'l', col = 'green', lwd=2)
+#      lines(powers.fixed2[,loc] ~ sigmalist, type = 'l', col='darkgreen',lwd=2)
+
+#    # plot oracle
+#      lines(powers.oracle~sigmalist, col = 'blue', lwd=2)
+#      
+##    # plot bic stoptimes
+##     addstoptimes = function(stoptimes, sigmalist, col, pch, adjust){
+##        par(new=TRUE)
+##        mn = apply(stoptimes,1,mean,na.rm=T) + 1 # adding one because of the way we define stoptime.
+##        sdev = apply(stoptimes,1,sd,na.rm=T)
+##        sigmalist_adjusted = sigmalist+rep(adjust,length(sigmalist))
+##        plot(mn ~ sigmalist_adjusted, pch=pch, ylim = c(0,5), xlim = xlim, axes=F, col = col, xlab = "", ylab = "")
+##        arrows(sigmalist_adjusted, mn-sdev, sigmalist_adjusted, mn+sdev, length=0.05, angle=90, code=3, col = col)
+
+##      }
+
+##      addstoptimes(stoptimes.bic,sigmalist, 'lightgrey', 19, 0)
+##      addstoptimes(stoptimes.bic2,sigmalist, 'lightgrey', "2", 0.05)
+##      addstoptimes(stoptimes.ebic,sigmalist, 'lightgrey', "e", 0.1)
+##      addstoptimes(stoptimes.aic,sigmalist, 'darkgrey', 19, -0.05)
+##      mtext("stoptimes", side = 4, padj = 2)
+##      axis(4)
+#      
+#      # plot fixed stop times
+#      abline(h=c(2,3),lty = c(1,2), col = 'yellow')
+#      
+
+#     # make legend
+#      legend("topright", lty = c(rep(c(1,1,2),2),1), lwd = c(rep(c(1,2,1),2),1), legend = c("BIC-naive", "BIC", "BICprox", "AIC-naive", "AIC", "AICprox", "oracle","fixed1", "fixed2"), col = c(rep("black",3), rep("red",3), "blue", "green", "darkgreen"))
+#      legend("bottomright", pch = c(19,19), col = c("lightgrey", "darkgrey"), legend = c("avg bic stoptime+-1sdv","aic-stoptime"))
+
+#    dev.off()
+#  }
+
+
+#  
+#  
+## plot distribution of stoptimes
+#  source("settings.R")
+#  pdf(file.path(outputdir, "stoptimeplots-onejump-allbic-barplot.pdf"), width = 15, height=10)
+#  library(vioplot)
+#  #nlist = 2*c(10,40,90) #n = 10  
+#  for(n in nlist[1]){
+#    source("settings.R")
+#    load(file=file.path(outputdir, paste0("bic-onejump-segmentsize-allbics", n/2, ".Rdata")))
+#    source("settings.R")
+#    ssl.bic = lapply(1:length(sigmalist), function(igrain){stoptimes.bic[igrain,] + 1 + rnorm(nsim,0,0.01)})
+#    ssl.bic = lapply(ssl.bic, function(vec){vec[!is.na(vec)]})
+#    ssl.bic2 = lapply(1:length(sigmalist), function(igrain){stoptimes.bic2[igrain,] + 1 + rnorm(nsim,0,0.01)})
+#        ssl.bic2 = lapply(ssl.bic2, function(vec){vec[!is.na(vec)]})
+#    ssl.ebic = lapply(1:length(sigmalist), function(igrain){stoptimes.ebic[igrain,] + 1 + rnorm(nsim,0,0.01)})
+#        ssl.ebic = lapply(ssl.ebic, function(vec){vec[!is.na(vec)]})
+#    ssl.sbic = lapply(1:length(sigmalist), function(igrain){stoptimes.sbic[igrain,] + 1 + rnorm(nsim,0,0.01)})
+#        ssl.sbic = lapply(ssl.sbic, function(vec){vec[!is.na(vec)]})
+#    ssl.aic = lapply(1:length(sigmalist), function(igrain){stoptimes.aic[igrain,] + 1 + rnorm(nsim,0,0.01)})
+#        ssl.aic = lapply(ssl.aic, function(vec){vec[!is.na(vec)]})
+
+#    # bic
+#    plotic = function(sigmalist, lims, sslobj, title, type = c("vioplot", "barplot"), plotind= 1:length(sigmalist)){
+#      if(type == "vioplot"){
+#        plot(NA, xlim = c(0,length(sigmalist)+1),ylim=lims,axes=F, ylab = "stoptimes (1 is null model)", xlab = expression(sigma))
+#        abline(h = 1:length(sigmalist), col = 'lightgrey', lty = 2)
+#        vioplot2 = function(...){vioplot(...,add=T,na.rm=T)}
+#        do.call(vioplot2,sslobj)
+#        axis(side=2); axis(side=1, at = 1:length(sigmalist), labels = signif(sigmalist,2)); title(title)
+#      }
+#      if(type == "barplot"){
+#        sslobj2 = lapply(sslobj, round)
+#        plotstoptimes = function(sslobj, plotind, sigmalist, xlim){
+#          sapply(plotind, function(jj){barplot(table(as.factor(sslobj[[jj]])),main=bquote(.(title)~sigma==.(signif(sigmalist[jj],2))),xlim=xlim)})
+#        }
+
+#        plotstoptimes(sslobj2,plotind,sigmalist, lims)
+#      }
+#    }
+#    
+#    # make barplot
+#    par(mfrow = c(3,8))
+#    plotind = c(1:5,10,15,20)
+#    plotic(sigmalist, c(0,10), ssl.bic, "bic", "barplot", plotind)
+#    plotic(sigmalist, c(0,10), ssl.bic2, "bic2", "barplot", plotind)
+#    plotic(sigmalist, c(0,10), ssl.ebic, "ebic", "barplot", plotind)
+#  }
+#  dev.off()
+
+
+
+### Seeing why BIC2 beats BIC
+#  n = 20
+#  load(file=file.path(outputdir, paste0("bic-onejump-segmentsize-allbics", n/2, ".Rdata")))
+#  inds = inds.1
+#  noisei = 2
+#  step=2
+#  table(round(ssl.bic2[[noisei+1]]))
+#  inds = which(stoptimes.bic2.cond[noisei,]==step+1)
+#  pvalslist = list()
+#  for(jj in 1:length(inds)){
+#    tempmat = rbind(signif(pvals.bic2[noisei,inds[jj],],2), signif(pvals.fixed1[noisei,inds[jj],],2))
+#    rownames(tempmat) = c(stoptimes.bic2.cond[noisei,inds[jj]], 1)
+#    stoptimes.bic2.cond[,inds[jj]]
+#    pvalslist[[jj]] = tempmat
+#  }
+
+
+
+
+## overlay JUST the BIC curves (and the two oracles)
+#  pdf(file.path(outputdir, "bic-overlayed-onejump.pdf"), width = 8, height=8)
+#  nlist = 2*c(10,40,90) #n = 10  
+#  for(zz in 1:3){
+#    zzold2 = zz
+#    n = nlist[zz]
+#    cat('\n', n, "out of", nlist)
+#    source("settings.R")
+#    load(file=file.path(outputdir, paste0("bic-onejump-segmentsize", n/2, ".Rdata")))
+#    source("settings.R")
+#    zz = zzold2
+#    rm(zzold2)
+#    print(zz)
+#  # plot powers
+#    loc = n/2
+#    xlim = c(0,max(sigmalist))
+#    ylim = c(0,1)
+#    plot(powers.bic[,loc] ~ sigmalist, type = 'l', lwd=2, lty = zz,xlim=xlim, ylim=ylim,axes=F)
+#    title("Conditional Power at correct location (n/2), for one-jump")
+#    axis(1, padj = zz); axis(2);
+
+#  # plot oracle
+#    lines(powers.oracle~sigmalist, col = 'blue', lwd=2, lty = zz)
+#    par(new=T)
+#  }
+#    legend("topright", lty = c(1:3), legend = nlist/2)
+#  dev.off()
+#  
+#  
+#  
+
+## overlay JUST the BIC curves on SAME SCALE (and the two oracles)
+#  pdf(file.path(outputdir, "bic-overlayed-onejump-sameaxis.pdf"), width = 8, height=8)
+#  nlist = 2*c(10,40,90) #n = 10  
+#  xlim = c(0,6)
+#  plot(NA, type = 'l', lwd=2, ylim = c(0,1), xlim = xlim, axes = F, xlab=expression(sigma), ylab = "condit. powers", lty = zz)
+#  title("Conditional Power at correct location (n/2), for one-jump")
+#  axis(1); axis(2);
+#  for(zz in 1:3){
+#    n = nlist[zz]
+#    cat('\n', n, "out of", nlist)
+#    source("settings.R")
+#    zzold2 = zz
+#    load(file=file.path(outputdir, paste0("bic-onejump-segmentsize", n/2, ".Rdata")))
+#    source("settings.R")
+#    zz = zzold2
+#    rm(zzold2)
+#  # plot powers
+#    loc = n/2
+#    lines(powers.bic[,loc] ~ sigmalist, type = 'l', lwd=2, lty = zz)
+
+#  # plot oracle
+#    lines(powers.oracle~sigmalist, col = 'blue', lwd=2, lty = zz)
+#  }
+#  legend("topright", lty = c(1:3), legend = nlist/2)
+#  dev.off()
+#  
+#  
+#  
+## plot data example
+#  load(file=file.path(outputdir, "bic-onejump.Rdata"))
+#  source("settings.R")
+#  pdf(file.path(outputdir,"bic-onejump-example.pdf"), width=12, height=5)
+#  par(mfrow = c(2,3))
+#    for(n in c(20,80)){
+#    # plot data example
+#    sigma = .1
+#    beta0 = onejump.y(returnbeta=T, lev1=0, lev2=2, sigma=sigma, n=n)  # this could change
+#    y0    = onejump.y(returnbeta=F, lev1=0, lev2=2, sigma=sigma, n=n)
+#    plot(y0,xlab="",ylab="");lines(beta0,col='red');title(paste("example data with noise=",sigma))
+#    
+#    sigma = .5
+#    beta0 = onejump.y(returnbeta=T, lev1=0, lev2=2, sigma=sigma, n=n)  # this could change
+#    y0    = onejump.y(returnbeta=F, lev1=0, lev2=2, sigma=sigma, n=n)
+#    plot(y0,xlab="",ylab="");lines(beta0,col='red');title(paste("example data with noise=",sigma))
+#    
+#    sigma = 1
+#    beta0 = onejump.y(returnbeta=T, lev1=0, lev2=2, sigma=sigma, n=n)  # this could change
+#    y0    = onejump.y(returnbeta=F, lev1=0, lev2=2, sigma=sigma, n=n)
+#    plot(y0,xlab="",ylab="");lines(beta0,col='red');title(paste("example data with noise=",sigma))
+#    }
+#  dev.off()
+#  
+#  
+#  
+
+## Seeing binomial confidence band; it is very small.
+#  n=20
+#  load(file=file.path(outputdir, paste0("bic-onejump-segmentsize", n/2, ".Rdata")))
+#  ls()
+#  sigmalist[12]
+#  sd(verdicts.bic.naive[12,,10],na.rm=T)/100
+#  mean(verdicts.bic.naive[12,,10],na.rm=T)
+#  mean(verdicts.proxaic[12,10],na.rm=T)
+#  powers.proxaic[12]
+#  ind.ends = seq(from=1,to=10000,by=100)
+#  
+## Find out why there isn't a boost in power.  
+#  n=20
+#  load(file=file.path(outputdir, paste0("bic-onejump-segmentsize", n/2, ".Rdata")))
+#  igrain=5
+#  for(isim in 1:100){
+#    loc = n/2
+#    proxwidth = round(log(n)) #2
+#    proxlocs = (loc-proxwidth):(loc+proxwidth)
+#    print(verdicts.bic[igrain,isim,proxlocs])
+#      readline() 
+#    print(verdicts.bic[igrain,isim,loc])
+#      readline() 
+#  }
+#  
+## find out why there isn't a boost in power; take 2
+#  for(n in 2*c(10,40,90)[1]){
+#  load(file=file.path(outputdir, paste0("bic-onejump-segmentsize-allbics", n/2, ".Rdata")))
+#  igrain=3
+#  loc = n/2
+#  proxwidth = n*0.15#round(log(n)) #2
+#  cat("width is ", proxwidth, fill=T)
+#  proxlocs = (loc-proxwidth):(loc+proxwidth)
+#  verdicts1 = c()
+#  verdicts2 = verdicts.ebic[igrain,,loc]
+#  for(isim in 1:nsim){
+#    verdicts = verdicts.ebic[igrain,isim,proxlocs]
+#    verdicts1[isim] =  (if(!all(is.na(verdicts))) any(verdicts,na.rm=T) else NA)
+#  }
+#  
+#  readline("proximate version")
+#  num1 = sum(verdicts1,na.rm=T)
+#  denom1 = sum(!is.na(verdicts1))
+#  print(num1)
+#  print(denom1)
+#  print(num1/denom1)
+
+#  readline("nonproximate version")
+#  num2 = sum(verdicts2,na.rm=T)
+#  denom2 = sum(!is.na(verdicts2))
+#  print(num2)
+#  print(denom2)
+#  print(num2/denom2)
+#  }
+#  sigmalist[igrain]
+#  
+## why does proxbic not do better?
+###?
+
+
+## What do BIC, EBIC, SBIC, BIC2 criteria look like?
+#pdf(file.path(outputdir,"allbicwhy.pdf"), width=8,height=10)
+#par(mfrow = c(5,4))
+#replicate(5,{
+#  sigma = .1
+#  n = maxsteps = 20
+#  beta0 = onejump.y(returnbeta=T, lev1=0, lev2=1, sigma, n)
+#  y0    = onejump.y(returnbeta=F, lev1=0, lev2=1, sigma, n)
+#  f0    = dualpathSvd2(y0, D=dual1d_Dmat(length(y0)), maxsteps,approx=T)
+#  print(which.rise(getebic(y0,f0,sigma,maxsteps, fac=.5),consec, n) - 1 )
+#  # get bic and plot results
+#  consec = 2
+#  bic = getbic(y0,f0,sigma,maxsteps)
+#  bic2 = getbic(y0,f0,sigma,maxsteps,fac=2)
+#  sbic = getbic(y0,f0,sigma,maxsteps,maxsteps,strength=1.01)
+#  ebic = getebic(y0,f0,sigma,maxsteps, fac=.5)
+#  plot(ebic, main = "ebic")
+#  abline(v = which.rise(ebic))
+#  plot(sbic, main="sbic")
+#  abline(v = which.rise(sbic))
+#  plot(bic2, main="bic2")
+#  abline(v = which.rise(bic2))
+#  plot(bic, main="bic")
+#  abline(v = which.rise(bic))
+#  })
+#  dev.off()
+
+
+
+## Add back the null cases to the EBIC criterion; to see what is swept under the rug by EBIC condit power ignoring the (increased) null cases compared to BIC
+
+### calculate condit power at each correct jump location
+#  nlist = 2*c(10,40,90) #n = 10  
+#  for(n in nlist[1]){
+#    cat('\n', n, "out of", nlist)
+##    source("settings.R")
+#    load(file=file.path(outputdir, paste0("bic-onejump-segmentsize-allbics", n/2, ".Rdata")))
+# #   source("settings.R")
+#    powers.bic = powers.bic.naive = 
+#    powers.ebic = powers.ebic.naive = 
+#    powers.oracle = powers.proxbic = powers.proxbic2 = powers.proxebic = powers.proxsbic = powers.proxaic = array(NA, ngrain)
+#    # For each location,
+#    for(igrain in 1:ngrain){
+#      # get exact condit powers
+#      getpow = function(verdicts,igrain,loc){  return(sum(verdicts[igrain,,loc],na.rm=T)/pmax(1,sum(!is.na(verdicts[igrain,,loc]))))   }
+#      getpow.augmented = function(verdicts,igrain,loc){  return(sum(verdicts[igrain,,loc],na.rm=T)/pmax(1,sum(!is.na(verdicts[igrain,,loc]))))   }
+#      for(loc in 1:n){
+#        powers.bic[igrain,loc]        = getpow(verdicts.bic,igrain,loc)
+#        powers.ebic[igrain,loc]       = getpow(verdicts.ebic,igrain,loc)
+#        powers.ebic.augmented[igrain,loc] = getpow(verdicts.ebic.naive,igrain,loc)
+#      }
+#      
+#      # get approximate powers at true break coordinate
+#      loc = n/2
+#      proxwidth = .15*n#log(n) #2
+#      proxlocs = (loc-proxwidth):(loc+proxwidth)
+#      proxbic.verdict = proxbic2.verdict = proxebic.verdict = proxsbic.verdict = proxaic.verdict = c()
+#      for(isim in 1:nsim){
+#       # bic
+#        verdicts = verdicts.bic[igrain,isim,proxlocs]
+#        proxbic.verdict[isim] = (if(!all(is.na(verdicts))) any(verdicts,na.rm=T) else NA)
+#       # bic2
+#        verdicts = verdicts.bic2[igrain,isim,proxlocs]
+#        proxbic2.verdict[isim] = (if(!all(is.na(verdicts))) any(verdicts,na.rm=T) else NA)
+#       # ebic
+#        verdicts = verdicts.ebic[igrain,isim,proxlocs]
+#        proxebic.verdict[isim] = (if(!all(is.na(verdicts))) any(verdicts,na.rm=T) else NA)
+#       # sbic
+#        verdicts = verdicts.sbic[igrain,isim,proxlocs]
+#        proxsbic.verdict[isim] = (if(!all(is.na(verdicts))) any(verdicts,na.rm=T) else NA)
+#       # aic
+#        verdicts = verdicts.aic[igrain,isim,proxlocs]
+#        proxaic.verdict[isim] = (if(!all(is.na(verdicts))) any(verdicts,na.rm=T) else NA)
+#      }
+#      powers.proxbic[igrain] = sum(proxbic.verdict, na.rm=T)/pmax(sum(!is.na(proxbic.verdict)),1)
+#      powers.proxbic2[igrain] = sum(proxbic2.verdict, na.rm=T)/pmax(sum(!is.na(proxbic2.verdict)),1)
+#      powers.proxebic[igrain] = sum(proxebic.verdict, na.rm=T)/pmax(sum(!is.na(proxebic.verdict)),1)
+#      powers.proxsbic[igrain] = sum(proxsbic.verdict, na.rm=T)/pmax(sum(!is.na(proxsbic.verdict)),1)
+#      powers.proxaic[igrain] = sum(proxaic.verdict, na.rm=T)/pmax(sum(!is.na(proxbic.verdict)),1)
+
+#      # oracle power at true break coordinate
+#      powers.oracle[igrain] = sum(verdicts.oracle[igrain,],na.rm=T)/nsim
+#    }
+#    obj.list2 = c("powers.bic", "powers.bic.naive", 
+#                  "powers.bic2", "powers.bic2.naive",
+#                  "powers.ebic", "powers.ebic.naive",
+#                  "powers.sbic", "powers.sbic.naive",
+#                  "powers.aic", "powers.aic.naive",
+#                  "powers.fixed1", "powers.fixed2", "powers.oracle",
+#                  "powers.proxbic", "powers.proxbic2","powers.proxaic")
+#    save(list=c(obj.list1,obj.list2), file=file.path(outputdir, paste0("bic-onejump-segmentsize-allbics", n/2, ".Rdata")))
+#  }
+
+
+
