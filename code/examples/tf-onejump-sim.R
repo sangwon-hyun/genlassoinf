@@ -22,7 +22,7 @@
   fac = .5
   beta2.high = .5*fac*seq(from=21,to=40) - 10*fac
 
-## Pick one 
+## Pick one
   beta0 = c(beta1,beta2.low)
   subname = "low"
   n = length(beta0) #  n = 60
@@ -32,34 +32,34 @@
   sigma=1
   tf.order=1
   if(subname=="none") nsim = 100000 else nsim = 50000
-  D = makeDmat(n,order=tf.order) 
+  D = makeDmat(n,order=tf.order)
   pvals = verdicts = pvals.decluttered = verdicts.decluttered = array(NA,dim=c(nsim,n))
   maxsteps = 20
 
   for(isim in 1:nsim){
      cat('\r', isim, "out of", nsim)
-  
+
     # Generate Data and path
     y0 = beta0 + rnorm(length(beta0),0,sigma)
     f0 = dualpathSvd2(y0, D, maxsteps = maxsteps,verbose=F)
-           
+
     # Collect Gammat at stop time
     bic   = get.modelinfo(f0,y0,sigma,maxsteps,D=D, stoprule = 'bic')$ic
     stop.time = which.rise(bic,consec=consec) - 1
     stop.time = pmin(stop.time,n-consec-1)
-      
+
     if(!(stop.time+consec < maxsteps)){
       print('bic rule hasnt stopped!')
       next
     }
-            
+
     Gobj.new.with.stoptime = getGammat.with.stoprule(obj=f0,y=y0,
                                        condition.step = stop.time+consec,
                                        stoprule = "bic", sigma=sigma, type='tf',
                                        consec=consec, maxsteps=maxsteps,D=D)
     G = Gobj.new.with.stoptime$Gammat
     u = Gobj.new.with.stoptime$u
-    
+
     #stopifnot(polyhedron.checks.out(y0,G.bic,u.bic))
      ## I did this because there is sometimes miniscule numerical errors in (Gamma^Ty - u)
     if(!polyhedron.checks.out(y0,G,u)){
@@ -75,7 +75,7 @@
     if(stop.time==0 ) next
     final.model.orig = states[[stop.time+1]]
     final.model.orig.signs = f0$ss[[stop.time+1]]
-    final.model.cluttered = sort(final.model.orig)  
+    final.model.cluttered = sort(final.model.orig)
     final.model.decluttered = declutter(final.model.orig)
 
     # test only the decluttered states, with /their/ adjusted contrasts
@@ -83,22 +83,22 @@
     for(kk in 1:2){
       final.model = final.models[[kk]]
       ntests = length(final.model)
-      if(stop.time > 0){          
+      if(stop.time > 0){
         for(ii in 1:ntests){
           test.knot      = final.model[ii]
           adj.knot       = final.model
           test.knot.sign = final.model.orig.signs[which(final.model.orig == test.knot)]
-          
-          v =     make.v.tf.fp(test.knot = test.knot, 
+
+          v =     make.v.tf.fp(test.knot = test.knot,
                               adj.knot  = adj.knot,
                               test.knot.sign = test.knot.sign,
-                              D = D)                            
+                              D = D)
 
-                              
+
           coord = test.knot
           pval  = pval.fl1d(y0,G,dik=v,sigma,u=u)
           verdict = (pval < (0.05/ntests))
-          
+
           if(kk==1){
             pvals[isim,coord] = pval
             verdicts[isim,coord] = verdict
@@ -110,6 +110,6 @@
       }
     }
   }
-  
+
   save(pvals, verdicts, pvals.decluttered, verdicts.decluttered, nsim,consec,sigma,tf.order,n,D,
        file = file.path(outputdir, paste0("tf-simple-",subname,".Rdata")))

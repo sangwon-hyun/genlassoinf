@@ -1,3 +1,6 @@
 .gitconfig
 .Rd
 \#*\#
+.Rdata
+.pdf
+output/*

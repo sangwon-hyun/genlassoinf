@@ -1036,13 +1036,18 @@ get.modelinfo = function(obj, consec=2, sigma, maxsteps=length(obj$action),
     ## Issue warning if BIC hasn't stopped, or stoptime is zero.
     stop.time = which.rise(ic.primal,consec=consec) - 1
     stop.time = pmin(stop.time,n-consec-1)
-    if(!(stop.time+consec < maxsteps)){warning(paste('IC rule using', consec, 'rises hasnt stopped!'))}
+    stopped=TRUE
+    if(!(stop.time+consec < maxsteps)){
+        warning(paste('IC rule using', consec, 'rises hasnt stopped!'))
+        stopped = FALSE
+    }
     stop.time = pmin(stop.time, n-consec-1) ## can't remember why I did this.
     if(stop.time==0) warning('Stoptime is zero!')
 
     return(list(RSS=RSS, pen=pen, ic=ic, resids=resids,
                 knots.primal = knots.primal, resids.primal = resids.primal,
-                ic.primal = ic.primal, actiondirs.primal = actiondirs.primal))
+                ic.primal = ic.primal, actiondirs.primal = actiondirs.primal,
+                stopped = stopped))
 }
 
 

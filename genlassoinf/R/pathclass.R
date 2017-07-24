@@ -13,7 +13,7 @@ is.path <- function(someobj){ inherits(someobj, "path") }
 ##' Form generic
 print <- function(x,...) UseMethod("print")
 
-##' Plotting function for "sim" class
+##' Plotting function for "path" class
 print.path = function(mypath){
 
     ## Print the directions and signs
@@ -29,11 +29,11 @@ print.path = function(mypath){
     mytable[1,1] = "knots="
     print(mytable)
 
-    ## Print the D matrix used 
+    ## Print the D matrix used
     cat("A glimpse of the D matrix is", fill=TRUE)
     Dmat = mypath$D
     print(Dmat[1:(min(nrow(Dmat),5)), 1:(min(ncol(Dmat),5))])
-} 
+}
 
 ##' Form generic
 step_sign_plot<- function(x,...) UseMethod("step_sign_plot")
@@ -78,18 +78,18 @@ step_sign_plot.path = function(mypath, stoptime, postprocess=FALSE, plot=FALSE){
 ##' plots the mean and changepoints of a `good' model -- good is either the
 ##' model size selected by cross-validation, or selected by an IC rule.
 ##' @param f0 product from running 1d fused lasso \code{dualpathSvd2()}.
-##' @param stoprule Desired stopping rule of algorithm. 
+##' @param stoprule Desired stopping rule of algorithm.
 ##' @export
 plot.path = function(mypath, stoprule = c("cv", "ic")){
-    
+
     ## Basic things
     stoprule = match.arg(stoprule)
     if(stoprule == "ic"){
         if(!("stoprule" %in% objects(mypath))){
-           stop("Run stoptime() on your path object before trying to plot!") 
+           stop("Run stoptime() on your path object before trying to plot!")
         }
     }
-    
+
     ## Plot settings (fixed for now)
     lcol.beta = "red"
     lty.beta = 1
@@ -101,7 +101,7 @@ plot.path = function(mypath, stoprule = c("cv", "ic")){
     ylab = "y"
     pcol.dat = 'grey50'
     pch.dat = 16
-    
+
     ## Make plot and add lines
     plot(y, axes=FALSE, xlab = xlab, ylab = ylab, col = pcol.dat, pch = pch.dat)
     axis(1);axis(2)

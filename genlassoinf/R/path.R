@@ -274,7 +274,6 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
         G[nk[length(nk)]+(1:nrow(newrows)),] = newrows
         nk = c(nk, nk[length(nk)]+nrow(newrows))
 
-
         # get rid of NA rows in G (temporary fix)
         missing.rows = apply(G, 1, function(row) any(is.na(row)))
         if(sum(missing.rows)>=1){ G <- G[-which(missing.rows),] }
@@ -447,9 +446,74 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
                   pathobjs=pathobjs, nk = nk, action=action, D = D, cp = cp,
                   cp.sign = cp.sign,
                   Gobj.naive=list(G=G[1:(nk[length(nk)]),],u=rep(0,nk[length(nk)])),
-                  Gobj.stoprule = NULL)
+                  Gobj.stoprule = NULL,
+                  maxsteps=maxsteps)
     class(mypath) <- "path"
     return(mypath)
+}
+
+
+##' Function generic for stop_path()
+stop_path <- function(x,...) UseMethod("stop_path")
+
+##' Embed stopping time into the path. Warning is issued if stoptime is zero, in
+##' which case selected model is empty and the additional rows and entries to
+##' \code{Gobj.stoprule$G} and \code{{Gobj.stoprule$u}} are empty as well.
+##' @param obj A naive |path| object
+##' @param sigma Standard deviation generating the data, in \code{obj$y}
+##' @param stoprule Either one of \code{c("bic","ebic","aic")}. Defaults to
+##'     \code{"bic"}.
+##' @param consec How many rises do you want to stop at? Defaults to 2.
+##' @examples
+##' n = 60
+##' sigma=1
+##' consec = 2
+##' D = makeDmat(n,type='tf',ord=0)
+##' set.seed(1)
+##' y0 = rep(c(0,1),each=n/2) + rnorm(n,0,sigma)
+##' f0 = dualpathSvd2(y0,D,maxsteps,approx=T)
+##' f0 = stop_path(f0)
+##' @export
+stop_path.path = function(obj, sigma, stoprule = "bic", consec = 2){
+
+    ## Basic checks
+    if(!is.null(obj$Gobj.stoprule)){
+        stop("Stoprule already seems to have been applied. Original path object will be returned.")
+        return(obj)
+    }
+
+    ## Get bic stopping time
+    ic = get.modelinfo(obj, consec=2, sigma=sigma, stoprule = stoprule)$ic
+    stoptime = which.rise(ic,consec) - 1
+    stoptime = pmin(stoptime, length(obj$y)-consec-1)
+    ## stopifnot(stoptime>0)
+    if(stoptime<=0){
+        warning("Stoptime is zero!")
+        locs.bic = c()
+        obj$Gobj.stoprule =   list(G=rbind(rep(NA,length(obj$y)))[-1,], u=c())
+        obj$stoppedmodel = obj$states[[stoptime+1]]
+    } else {
+        locs.bic = obj$pathobj$B[1:stoptime]
+
+        ## Get object for stopping time.
+        new.Gobj = getGammat.with.stoprule(obj=obj, y=obj$y,
+                                       condition.step=stoptime+consec,
+                                       type='tf', stoprule = stoprule, sigma=sigma,
+                                       consec=consec, maxsteps=obj$maxsteps, D=D)
+        obj$Gobj.stoprule = list(G=new.Gobj$G, u=new.Gobj$u)
+        obj$stoppedmodel = obj$states[[stoptime+1]]
+        }
+    stoptime=0
+
+    ## Add stopping time to path object
+    obj$stoptime = matrix(stoptime,
+                          dimnames=list(NULL,paste(stoprule, "with consec=", consec)))
+    obj$stoprule = stoprule
+    obj$consec = consec
+
+    ## Return updated path object! Yay!
+    class(obj) <- "path"
+    return(obj)
 }
 
 
@@ -543,5 +607,5 @@ genlassoinf <- function(y, X, D, approx=FALSE, maxsteps=2000, minlam=0,
 
     out$call = match.call()
     class(out) = c("genlasso", "list")
-    return(out)
+  return(out)
 }

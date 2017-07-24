@@ -18,7 +18,7 @@ D = makeDmat(n,type='tf',ord=0)
 sigma = 1
 lev1 = 0
 lev2 = 1
-maxsteps = 10 
+maxsteps = 10
 beta0 = rep(c(lev1,lev2),each=n/2)
 set.seed(1)
 y0 = beta0 + rnorm(n, 0,sigma)
@@ -29,7 +29,7 @@ f0 = dualpathSvd2(y0,D,maxsteps,approx=T)
 
 ## Stop using BIC, add the information to f0
 f0 = stop_path(f0, sigma=sigma, stoprule="bic")
-    
+
 ## Identify test locations from path, stopping using BIC
 locs = f0$stoppedmodel
 
@@ -50,7 +50,7 @@ for(test.step in 1:f0$stoptime){
 }
 
 
-## Optionally, create a step-sign plot /manually/; see step-sign-demo.R
+## Optionally, create a step-sign plot /manually/; see ./step-sign-demo.R
 signs = f0$ss[[f0$stoptime+1]]
 final.model = f0$states[[f0$stoptime+1]]
 s0 = step_sign_plot_inner(signs, final.model, n)# plot=TRUE
