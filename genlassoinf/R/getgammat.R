@@ -12,7 +12,7 @@ getGammat.naive = function(obj, y, condition.step=NULL){
     }
 
     ## Extract naive Gamma matrix
-    my.Gammat = obj$Gobj.naive$G[1:obj$nk[condition.step],]
+    my.Gammat = obj$Gobj.naive$G[1:obj$nk[condition.step+1],] ## nk starts with a 0 element.
     my.u = rep(0,nrow(my.Gammat))
     return(list(G = my.Gammat, u = my.u, condition.step=condition.step))
 }
