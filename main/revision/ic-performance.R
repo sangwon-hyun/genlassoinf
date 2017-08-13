@@ -4,12 +4,12 @@ sigma = 1
 n = 60
 consec = 2
 
-onesim <- function(lev,n,fun=onejump,isim=NULL){
+onesim <- function(lev,n, fun=onejump,isim=NULL){
     if(!is.null(isim)) set.seed(isim)
 
     ## Generate data + path
     maxsteps = 5
-    y0 = fun(lev,n)
+    y0 = fun(lev,n) + rnorm(n,0,1)
     D = genlassoinf::makeDmat(n,type='tf',ord=0)
 
     ## Obtain stoptime
@@ -35,15 +35,17 @@ onesim <- function(lev,n,fun=onejump,isim=NULL){
     numcp.global = which.min(bic)-1
     numcp.global = pmin(numcp.global, n-consec-1)
 
+    print(numcp.global)
+
     return(list(numcp.tworise=numcp.tworise,
                 numcp.global= numcp.global))
 }
 
 
 ## Run the onejump example
-nlev = 6
+nlev = 21
 levs = seq(from=0.01,to=3,length=nlev)
-nsim = 2000
+nsim = 3000
 stoptimelist = mclapply(1:length(levs), function(ilev){
     print(ilev)
     lev = levs[ilev]
@@ -52,11 +54,13 @@ stoptimelist = mclapply(1:length(levs), function(ilev){
 },mc.cores=3)
 
 ## Save this data
-settings = list(nsim=nsim,levs=levs,onesim=onesim,levs=levs)
+settings = list(nsim=nsim,levs=levs,onesim=onesim)
 save(list=c("settings", "stoptimelist"), file="../output/ic-performance.Rdata")
 
 ## Percent of times the right thing was captured
+load(file="../output/ic-performance.Rdata")
 getstopprop = function(stoptimemat, njumps){
+    nsim = ncol(stoptimemat)
     prop1 = unlist(stoptimemat[1,])
     prop2 = unlist(stoptimemat[2,])
     prop1 = sum(unlist(stoptimemat[1,]) %in% njumps)/nsim
@@ -73,11 +77,11 @@ pdf(file="../output/ic-performance.pdf", width=w, height=h)
 lty=c(1,2)
 legend = c("Two-rise", "Global")
 col=c(1,1)
-plot(NA, ylim=c(0,1), xlim=c(0,max(levs)),
-     axes= FALSE, ylab="lev", xlab= "Proportion")
+plot(NA, ylim=c(0,1), xlim=c(0,max(settings$levs)), axes= FALSE, xlab="lev",
+     ylab= "Proportion of times \n 1 or 2 jumps were captured")
 axis(1)
 axis(2)
-matlines(y=(stopprop12), x=levs,  type='l', lty=lty, col=col)
+matlines(y=(stopprop12), x=settings$levs,  type='l', lty=lty, col=col)
 legend("bottomright", lty=lty, legend = legend)
 graphics.off()
 
