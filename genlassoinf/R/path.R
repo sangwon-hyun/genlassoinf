@@ -85,7 +85,7 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
     M = matrix(s*tDinv[ihit,], nrow(tDinv[-ihit,]), n, byrow=TRUE)
     newrows = rbind(M + tDinv[-ihit,],
                     M - tDinv[-ihit,])
-    G[nk[length(nk)]+(1:nrow(newrows)),] = newrows
+    if(nrow(newrows)>=1) G[nk[length(nk)]+(1:nrow(newrows)),] = newrows
             nk = c(nk, nk[length(nk)]+nrow(newrows))
 
     # Other things to keep track of, but not return
@@ -163,7 +163,7 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
         newrows = (if(length(shits)>1){
           do.call(rbind, lapply(1:length(shits), function(ii){shits[ii] * tDinv[ii,]  }))
         } else {
-          shits* tDinv
+          rbind(shits* tDinv)
         })
 
         ## Add those rows
@@ -172,7 +172,7 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
             G = rbind(G, emptyrows)
         }
 
-        G[nk[length(nk)]+(1:nrow(newrows)),] = newrows
+        if(nrow(newrows)>=1) G[nk[length(nk)]+(1:nrow(newrows)),] = newrows
         nk = c(nk, nk[length(nk)]+nrow(newrows))
         ## nk = c(nk,nrow(G))
 
@@ -183,16 +183,17 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
           nleft = nrow(A[-ihit,])
           if(is.null(nleft)) nleft = 1
           M = matrix(A[ihit,], nrow = nleft, ncol = n, byrow = TRUE)
-          newrows = M - A[-ihit,]
+          newrows = rbind(M - A[-ihit,])
 
           ## Add those rows
           if(nk[length(nk)] + nrow(newrows) > nrow(G)){
               emptyrows = matrix(NA,nrow= nrow(G),ncol=n)
               G = rbind(G, emptyrows)
           }
-          G[nk[length(nk)]+(1:nrow(newrows)),] = newrows
+          if(nrow(newrows)>=1) G[nk[length(nk)]+(1:nrow(newrows)),] = newrows
             nk = c(nk, nk[length(nk)]+nrow(newrows))
         }
+
       }
 
       ##########
@@ -241,11 +242,16 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
 
         # Gamma matrix!!
         # rows to add, for leaving event:
-        if(dim(D1)[1]==0) D1 = rep(0,ncol(D1)) # temporarily added because of
+        if(dim(D1)[1]==0) D1 = rbind(rep(0,ncol(D1))) # temporarily added because of
                                                # dimension problem in next line,
                                                # at last step of algorithm
-        gmat = s*(D2%*%(In - t(D1)%*%D3)) # coefficient matrix to c
+        ## if(k==45) browser()
+        ## dim(t(D1))
+        ## dim(D3)
+        ## dim(D2)
+        ## dim(t(D1)%*%D3)
 
+        gmat = s*(D2%*%(In - t(D1)%*%D3)) # coefficient matrix to c
         # close-to-zero replacement is hard-coded in
         gmat[abs(c)<cdtol,] = rep(0,ncol(gmat))
 
@@ -263,7 +269,7 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
         #if( (length(Di)!=0) & (which(closeto.lambda) %in% which(Di))) print("closeto.lambda replacement SHOULD have happenned (but didn't).")
 
         # new rows that ensure c<0 #(only in )
-        newrows1 = rbind(gmat[Ci&Di,]*(-1),
+        newrows = rbind(gmat[Ci&Di,]*(-1),
                          gmat[(!Ci)&Di,])
 
         ## Add those rows
@@ -271,7 +277,7 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
             emptyrows = matrix(NA,nrow= nrow(G),ncol=n)
             G = rbind(G, emptyrows)
         }
-        G[nk[length(nk)]+(1:nrow(newrows)),] = newrows
+        if(nrow(newrows)>=1) G[nk[length(nk)]+(1:nrow(newrows)),] = newrows
         nk = c(nk, nk[length(nk)]+nrow(newrows))
 
         # get rid of NA rows in G (temporary fix)
@@ -284,16 +290,18 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
         CDi[ileave] = FALSE
         CDind = which(CDi)
 
-        newrows = gd[rep(ileave,length(CDind)),] - gd[CDind,]
+        newrows = rbind(gd[rep(ileave,length(CDind)),] - gd[CDind,])
 
         ## Add those rows
         if(nk[length(nk)] + nrow(newrows) > nrow(G)){
             emptyrows = matrix(NA,nrow= nrow(G),ncol=n)
             G = rbind(G, emptyrows)
         }
-        G[nk[length(nk)]+(1:nrow(newrows)),] = newrows
+        ## G[nk[length(nk)]+(1:nrow(newrows)),] = newrows
+        if(nrow(newrows)>=1) G[nk[length(nk)]+(1:nrow(newrows)),] = newrows
         ## nk = c(nk,nrow(G))
         nk = c(nk, nk[length(nk)]+nrow(newrows))
+
 
       }
       ##########
@@ -318,14 +326,14 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
         # add row to Gamma to characterize the hit coming next
         if(!approx)  {
             ## this is literally h_k - l_k > 0
-            newrows = A[ihit,] - gd[ileave,]
+            newrows = rbind(A[ihit,] - gd[ileave,])
 
             ## Add those rows
             if(nk[length(nk)] + nrow(newrows) > nrow(G)){
                 emptyrows = matrix(NA,nrow= nrow(G),ncol=n)
                 G = rbind(G, emptyrows)
             }
-            G[nk[length(nk)]+(1:nrow(newrows)),] = newrows
+            if(nrow(newrows)>=1) G[nk[length(nk)]+(1:nrow(newrows)),] = newrows
             ## nk = c(nk,nrow(G))
             nk = c(nk, nk[length(nk)]+nrow(newrows))
         }
@@ -367,9 +375,10 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
               emptyrows = matrix(NA,nrow= nrow(G),ncol=n)
               G = rbind(G, emptyrows)
           }
-          G[nk[length(nk)]+(1:nrow(newrows)),] = newrows
+          if(nrow(newrows)>=1) G[nk[length(nk)]+(1:nrow(newrows)),] = newrows
           nk = c(nk, nk[length(nk)]+nrow(newrows))
           ## nk = c(nk,nrow(G))
+
         }
 
 
@@ -454,6 +463,7 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
 
 
 ##' Function generic for stop_path()
+##' @export
 stop_path <- function(x,...) UseMethod("stop_path")
 
 ##' Embed stopping time into the path. Warning is issued if stoptime is zero, in

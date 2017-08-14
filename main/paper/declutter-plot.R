@@ -1,12 +1,8 @@
-# Make sure you're working from [dropboxfolder]/code
-source('funs.R')
-source('testfuns.R')
-source('dualPathSvd2.R')
-source('selectinf/selectiveInference/R/funs.inf.R')
-outputdir = "output"
+library(genlassoinf)
+outputdir = "."
 codedir = "."
-library(genlasso)
-library(RColorBrewer)
+## library(genlasso)
+## library(RColorBrewer)
 
 ###########################################
 ### Generate data for declutter example ###
@@ -19,7 +15,7 @@ library(RColorBrewer)
   beta0 = c(beta1,beta2,beta3)
   n = length(beta0)
 
-# Example of linear trend filtering    
+# Example of linear trend filtering
   sigma = 1
   tf.order = 1
   consec = 2
@@ -28,39 +24,36 @@ library(RColorBrewer)
   print(myseed)
   set.seed(myseed) #set.seed(53)
 
-  
   y0 = beta0 + rnorm(length(beta0),0,sigma)
-  D = makeDmat(n,type="trend.filtering",order=1)
-  maxsteps = 20
-  f0 = dualpathSvd2(y0, D, maxsteps = maxsteps)
+  D = makeDmat(n,type="tf",order=1)
+  f0 = dualpathSvd2(y0, D, maxsteps = maxsteps, verbose=TRUE)
 
-       
   # Collect Gammat at stop time
   bic   = get.modelinfo(f0,y0,sigma,maxsteps,D=D, stoprule = 'bic')$ic
   stop.time = which.rise(bic,consec=consec) - 1
   stop.time = pmin(stop.time,n-consec-1)
-  
+
   if(!(stop.time+consec < maxsteps)){
     stop('bic rule hasnt stopped!')
   }
-          
+
   Gobj.new.with.stoptime = getGammat.with.stoprule(obj=f0,y=y0,
                                      condition.step = stop.time+consec,
                                      stoprule = "bic", sigma=sigma, type='tf',
                                      consec=consec, maxsteps=maxsteps,D=D)
   G = Gobj.new.with.stoptime$Gammat
   u = Gobj.new.with.stoptime$u
-  
+
   # Check correctness of polyhedron:
   polyhedron.checks.out = function(y0,G,u){
     all.nonneg = all((G%*%y0 >= u))
-    if(all.nonneg){ 
-      return(all.nonneg) 
+    if(all.nonneg){
+      return(all.nonneg)
     } else {
       print("failed Gy >= u test")
       return(all.nonneg)
     }
-  }        
+  }
   #stopifnot(polyhedron.checks.out(y0,G.bic,u.bic))
   if(!polyhedron.checks.out(y0,G,u)){
       print("polyhedron is problematic")
@@ -69,7 +62,7 @@ library(RColorBrewer)
 
   # Conduct tests and record pvals + stoptimes
   states = get.states(f0$action)
-  
+
   # declutter the last states
   final.model = states[[stop.time]]
   final.model.cluttered = sort(final.model)
@@ -77,7 +70,7 @@ library(RColorBrewer)
 
   # test only the decluttered states, with /their/ adjusted contrasts
   final.models = list(final.model.cluttered,final.model.decluttered)
-  
+
   Vs = Ps = Cs = list()
   for(kk in 1:2){
     final.model = final.models[[kk]]
@@ -90,23 +83,23 @@ library(RColorBrewer)
           f1 = dualpathSvd2(y0, D, maxsteps = stop.time-1)
           this.sign = f1$pathobj$s[f1$pathobj$B == final.model[ii]]
         }
-         
-        
-        v =     make.v.tf.fp(test.knot = final.model[ii], 
+
+
+        v =     make.v.tf.fp(test.knot = final.model[ii],
                               adj.knot  = final.model,
                               test.knot.sign = this.sign,#f1$adj.knot,
                               D = D)
         contrasts[[ii]] = v
-        
+
         mycoord = final.model[ii]
         mypval  = pval.fl1d(y0,G,dik=v,sigma,u=u)
         pvals[ii] = mypval
         coords[ii] = mycoord
 
-       
+
       }
-    } 
-    
+    }
+
     Vs[[kk]] = contrasts
     Ps[[kk]] = pvals
     Cs[[kk]] = coords
@@ -163,7 +156,7 @@ for(kk in 2:1){
     abline(h=0,col=lcol.hline)
 #      lines(beta0,col=lcol.signal, lwd=lwd.signal)
     points(v*7-kk*.3,col=pcols.contrast.tf[kk],pch=pchs.contrast.tf[kk]);
-    abline(v=final.model[ii]+.5+.5, lwd=lwd.test.knot, col = lcol.test.knot,lty=lty.knots); 
+    abline(v=final.model[ii]+.5+.5, lwd=lwd.test.knot, col = lcol.test.knot,lty=lty.knots);
     abline(v=final.model+.5+.5, lwd=lwd.knot, col = lcol.final.model.knots,lty=lty.knots)
     lines(f0$beta[,stop.time+1], col = lcol.est, lwd = lwd.est)
     ## text(x=final.model[ii], y = -5-1.5*kk+1, label = paste(  (if(kk==1) "Original" else "Post-processed"),"p-value: ",signif(pval,3)))
@@ -178,7 +171,7 @@ for(kk in 2:1){
         ## }
         }
     }
-    
+
     ## if(ii==2){
     ##     kk=2
     ##     v = (Vs[[kk]])[[ii]]
@@ -190,10 +183,10 @@ for(kk in 2:1){
 
 
 #######################################################
-### 1d Fused Lasso declutter (generate data + plot) ### 
+### 1d Fused Lasso declutter (generate data + plot) ###
 #######################################################
 
-## Generate data and plot (in one swipe) 
+## Generate data and plot (in one swipe)
     set.seed(29)
     sigma = .5
     lev1=2; lev2=5; lev3=3; n = 60
@@ -227,20 +220,20 @@ for(kk in 2:1){
     # Check correctness of polyhedron:
     polyhedron.checks.out = function(y0,G,u){
         all.nonneg = all((G%*%y0 >= u))
-        if(all.nonneg){ 
-        return(all.nonneg) 
+        if(all.nonneg){
+        return(all.nonneg)
         } else {
         print("failed Gy >= u test")
         return(all.nonneg)
         }
-    }        
+    }
     #stopifnot(polyhedron.checks.out(y0,G.bic,u.bic))
     if(!polyhedron.checks.out(y0,G,u)){
         print("polyhedron is problematic")
         next
     }
 
-        # Two contrasts, before clustering 
+        # Two contrasts, before clustering
         v.before1.with.zeroes = getdvec(obj=f0,y=y0,k=2,klater=stop.time, type="segment")
         v.before1 = v.before1.with.zeroes
         v.before1[v.before1==0] = NA
@@ -256,9 +249,9 @@ for(kk in 2:1){
         f1 =  dualpathSvd2(y0,D,maxsteps=stop.time)
         this.sign = f1$pathobj$s[which(f1$pathobj$B == final.model.after.declutter[ii])]
 
-        D = makeDmat(n,ord=0)    
-        v.after.with.zeroes = make.v.tf.fp(test.knot = final.model.after.declutter[ii], 
-                                adj.knot = final.model.after.declutter, 
+        D = makeDmat(n,ord=0)
+        v.after.with.zeroes = make.v.tf.fp(test.knot = final.model.after.declutter[ii],
+                                adj.knot = final.model.after.declutter,
                                test.knot.sign = this.sign, D=D)
         v.after = v.after.with.zeroes
         vtol = 1E-10

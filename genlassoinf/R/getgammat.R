@@ -61,7 +61,7 @@ getGammat.stoprule = function(obj, y, condition.step, stoprule, sigma, consec,
       residual = mm$resids[,jj+1]
       const    = abs(mm$pen[jj+1] - mm$pen[jj]) #getconst(stoprule,jj,sigma,n,big.df,small.df,bic.fac,ebic.fac)
       upol[jj] = (-signs[jj+1]) * sqrt(const)
-      rows.to.add[jj,] = (-signs[jj+1]) * sign(t(residual)%*%y) * residual/sqrt(sum(residual^2))
+      rows.to.add[jj,] = (-signs[jj+1]) * c(sign(t(residual)%*%y)) * residual/sqrt(sum(residual^2))
 
       # Also add other direction if (1) model size change and (2) BIC comparison
   #    # are *both* up or down, in direction

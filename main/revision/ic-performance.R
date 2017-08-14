@@ -1,11 +1,11 @@
 ## Generate data
+library(genlassoinf)
 source("../main/revision/ic-performance-helper.R")
 sigma = 1
 n = 60
 consec = 2
 
-onesim <- function(lev,n, fun=onejump,isim=NULL){
-    if(!is.null(isim)) set.seed(isim)
+onesim <- function(lev,n, fun=onejump){
 
     ## Generate data + path
     maxsteps = 5
@@ -13,8 +13,8 @@ onesim <- function(lev,n, fun=onejump,isim=NULL){
     D = genlassoinf::makeDmat(n,type='tf',ord=0)
 
     ## Obtain stoptime
-    f0    = dualpathSvd2(y0, D=D, maxsteps, approx=T)
-    mm = get.modelinfo(obj=f0, consec=2, sigma=sigma)
+    f0    = genlassoinf::dualpathSvd2(y0, D=D, maxsteps, approx=T)
+    mm = genlassoinf::get.modelinfo(obj=f0, consec=2, sigma=sigma)
     bic = mm$ic
     stopped = mm$stopped
     while(!stopped){
@@ -26,7 +26,7 @@ onesim <- function(lev,n, fun=onejump,isim=NULL){
     }
 
     ## 2-rise rule
-    f1 = stop_path(f0, sigma=sigma, stoprule="bic")
+    f1 = genlassoinf::stop_path.path(f0, sigma=sigma, stoprule="bic")
     stoppedmodel = f1$stoppedmodel
     stoppedmodel = stoppedmodel[!(is.na(stoppedmodel))]
     numcp.tworise = length(stoppedmodel)
@@ -34,8 +34,6 @@ onesim <- function(lev,n, fun=onejump,isim=NULL){
     ## Global minimization rule.
     numcp.global = which.min(bic)-1
     numcp.global = pmin(numcp.global, n-consec-1)
-
-    print(numcp.global)
 
     return(list(numcp.tworise=numcp.tworise,
                 numcp.global= numcp.global))
@@ -46,12 +44,14 @@ onesim <- function(lev,n, fun=onejump,isim=NULL){
 nlev = 21
 levs = seq(from=0.01,to=3,length=nlev)
 nsim = 3000
+cat(fill=TRUE)
 stoptimelist = mclapply(1:length(levs), function(ilev){
-    print(ilev)
+    cat('\r', ilev, "out of", nlev, "number of levels")
     lev = levs[ilev]
     results <- replicate(nsim, {onesim(lev,n,onejump)})
     return(results)
 },mc.cores=3)
+cat(fill=TRUE)
 
 ## Save this data
 settings = list(nsim=nsim,levs=levs,onesim=onesim)
