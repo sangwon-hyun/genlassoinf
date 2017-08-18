@@ -61,30 +61,6 @@ for(ii in 1:length(locs)){
 }
 
 ## Plot the p-values on the data.
-xlab = "Location"
-w = 5; h = 5
-pch = 16; lwd = 2
-pcol = "gray50"
-ylim = c(-3,5)
-mar = c(4.5,4.5,0.5,0.5)
-xlim = c(0,110)
-
-xticks = c(0,2,4,6)*10
-let = c("A","B")
-ltys.sig = c(2,2,1)
-lwd.sig = 2
-pch.dat = 16
-pcol.dat = "grey50"
-pch.contrast = 17
-lty.contrast = 2
-lcol.sig = 'red'
-pcol.spike=3
-pcol.segment=4
-pcols.delta =   pcols.oneoff = RColorBrewer::brewer.pal(n=3,name="Set2")
-pch.spike = 15
-pch.segment = 17
-cex.contrast = 1.2
-
 par(mar=c(4.1,3.1,3.1,1.1))
 plot(y0, ylim = ylim,axes=F, xlim=xlim, xlab = xlab, ylab = "", pch=pch, col=pcol);
 axis(1);axis(2)
@@ -92,8 +68,8 @@ abline(v=f0$stoppedmodel, col='lightgrey', lwd=2, lty=3)
 text(x=f0$stoppedmodel,y=4,label=paste0("segment test p-value = ", pval))
 
 ## CI
-myci = ci(y0, G, u, vs[[1]], sigma = sigma, alpha = 0.95, alternative="two.sided")
-myci
+myci = ci(y0, G, u, vs[[1]], sigma = sigma, alpha = 0.95, alternative="one.sided")
+myci = selectiveInference::TG.interval(y0, G, u, vs[[1]], sigma = sigma, alpha = 0.95, alternative="one.sided")
 
 
 mabline(h = mean(v.segment,na.rm=T), col = 'lightgrey')

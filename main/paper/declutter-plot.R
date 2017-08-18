@@ -1,8 +1,14 @@
-library(genlassoinf)
-outputdir = "."
-codedir = "."
-## library(genlasso)
-## library(RColorBrewer)
+# Make sure you're working from [dropboxfolder]/code
+## source('funs.R')
+## source('testfuns.R')
+## source('dualPathSvd2.R')
+## source('selectinf/selectiveInference/R/funs.inf.R')
+## outputdir = "output"
+## codedir = "."
+
+outputdir = "~/Desktop"
+library(genlasso)
+library(RColorBrewer)
 
 ###########################################
 ### Generate data for declutter example ###
@@ -26,9 +32,10 @@ codedir = "."
 
   y0 = beta0 + rnorm(length(beta0),0,sigma)
   D = makeDmat(n,type="tf",order=1)
-  f0 = dualpathSvd2(y0, D, maxsteps = maxsteps, verbose=TRUE)
+  maxsteps = 20
+  f0 = dualpathSvd2(y0, D, maxsteps = maxsteps)
 
-  # Collect Gammat at stop time
+  ## Collect Gammat at stop time
   bic   = get.modelinfo(f0,y0,sigma,maxsteps,D=D, stoprule = 'bic')$ic
   stop.time = which.rise(bic,consec=consec) - 1
   stop.time = pmin(stop.time,n-consec-1)
@@ -130,7 +137,7 @@ pcol.dat = "grey50"
 pcols.contrast.tf = brewer.pal(n=3,name="Set2")
 pcols.contrast.tf[2] = "grey75"
 ## lwd.knots = c(1,1)
-pchs.contrast.tf = c(15,17)
+pchs.contrast.tf = c(17,15)
 ylim=c(-5,20)
 ylab = ""
 xlab = "Location"

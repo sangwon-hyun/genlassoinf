@@ -1,4 +1,4 @@
-# Makeshift replacement of all usages of pval.fl1d to poly.pval; 
+# Makeshift replacement of all usages of pval.fl1d to poly.pval;
 # todo: change simulation code directly
 pval.fl1d <- function(y, G, dik, sigma, approx=T, threshold=T, approxtype = c("gsell","rob"), u = rep(0,nrow(G))){
   ## return(poly.pval(y, G, u, dik, sigma, bits=NULL)$pv)
@@ -11,7 +11,7 @@ poly.pval <- function(y, G, u, v, sigma, bits=NULL) {
   z = sum(v*y)
   vv = sum(v^2)
   sd = sigma*sqrt(vv)
-  
+
   rho = G %*% v / vv
   vec = (u - G %*% y + rho*z) / rho
   vlo = suppressWarnings(max(vec[rho>0]))
@@ -25,16 +25,16 @@ poly.pval <- function(y, G, u, v, sigma, bits=NULL) {
 
 poly.int <- function(y, G, u, v, sigma, alpha, gridrange=c(-100,100),
                      gridpts=100, griddepth=2, flip=FALSE, bits=NULL) {
-  
+
   z = sum(v*y)
   vv = sum(v^2)
   sd = sigma*sqrt(vv)
-  
+
   rho = G %*% v / vv
   vec = (u - G %*% y + rho*z) / rho
   vlo = suppressWarnings(max(vec[rho>0]))
   vup = suppressWarnings(min(vec[rho<0]))
-  
+
   xg = seq(gridrange[1]*sd,gridrange[2]*sd,length=gridpts)
   fun = function(x) { tnorm.surv(z,x,sd,vlo,vup,bits) }
 
@@ -45,7 +45,7 @@ poly.int <- function(y, G, u, v, sigma, alpha, gridrange=c(-100,100),
     int = -int[2:1]
     tailarea = tailarea[2:1]
   }
-  
+
   return(list(int=int,tailarea=tailarea))
 }
 
@@ -59,13 +59,13 @@ poly.int <- function(y, G, u, v, sigma, alpha, gridrange=c(-100,100),
 grid.search <- function(grid, fun, val1, val2, gridpts=100, griddepth=2) {
   n = length(grid)
   vals = fun(grid)
-    
+
   ii = which(vals >= val1)
   jj = which(vals <= val2)
   if (length(ii)==0) return(c(grid[n],Inf))   # All vals < val1
   if (length(jj)==0) return(c(-Inf,grid[1]))  # All vals > val2
   # RJT: the above logic is correct ... but for simplicity, instead,
-  # we could just return c(-Inf,Inf) 
+  # we could just return c(-Inf,Inf)
 
   i1 = min(ii); i2 = max(jj)
   if (i1==1) lo = -Inf
@@ -88,7 +88,7 @@ grid.bsearch <- function(left, right, fun, val, gridpts=100, griddepth=1, below=
   while (depth <= griddepth) {
     grid = seq(left,right,length=n)
     vals = fun(grid)
-    
+
     if (below) {
       ii = which(vals >= val)
       if (length(ii)==0) return(grid[n])   # All vals < val (shouldn't happen)
@@ -96,7 +96,7 @@ grid.bsearch <- function(left, right, fun, val, gridpts=100, griddepth=1, below=
       left = grid[i0-1]
       right = grid[i0]
     }
-    
+
     else {
       ii = which(vals <= val)
       if (length(ii)==0) return(grid[1])   # All vals > val (shouldn't happen)
@@ -115,21 +115,21 @@ grid.bsearch <- function(left, right, fun, val, gridpts=100, griddepth=1, below=
 
 tnorm.surv <- function(z, mean, sd, a, b, bits=NULL) {
   z = max(min(z,b),a)
-  
+
   # Check silly boundary cases
   p = numeric(length(mean))
   p[mean==-Inf] = 0
   p[mean==Inf] = 1
-  
+
   # Try the multi precision floating point calculation first
   o = is.finite(mean)
   mm = mean[o]
-  pp = mpfr.tnorm.surv(z,mm,sd,a,b,bits) 
+  pp = mpfr.tnorm.surv(z,mm,sd,a,b,bits)
 
   # If there are any NAs, then settle for an approximation
   oo = is.na(pp)
   if (any(oo)) pp[oo] = bryc.tnorm.surv(z,mm[oo],sd,a,b)
-  
+
   p[o] = pp
   return(p)
 }
@@ -149,7 +149,7 @@ mpfr.tnorm.surv <- function(z, mean=0, sd=1, a, b, bits=NULL) {
     return(as.numeric((Rmpfr::pnorm(b)-Rmpfr::pnorm(z))/
                       (Rmpfr::pnorm(b)-Rmpfr::pnorm(a))))
   }
-  
+
   # Else, just use standard floating point calculations
   z = (z-mean)/sd
   a = (a-mean)/sd
@@ -218,7 +218,7 @@ aicStop <- function(x, y, action, df, sigma, mult=2, ntimes=2) {
   G = matrix(0,nrow=0,ncol=n)
   u = numeric(0)
   count = 0
-  
+
   for (i in 1:k) {
     A = action[1:i]
     aic[i] = sum(lsfit(x[,A],y,intercept=F)$res^2) + mult*sigma^2*df[i]
@@ -227,7 +227,7 @@ aicStop <- function(x, y, action, df, sigma, mult=2, ntimes=2) {
     if (i==1) xtil = x[,j]
     else xtil = lsfit(x[,action[1:(i-1)]],x[,j],intercept=F)$res
     s = sign(sum(xtil*y))
-    
+
     if (i==1 || aic[i] <= aic[i-1]) {
       G = rbind(G,s*xtil/sqrt(sum(xtil^2)))
       u = c(u,sqrt(mult)*sigma)
@@ -247,7 +247,7 @@ aicStop <- function(x, y, action, df, sigma, mult=2, ntimes=2) {
     aic = aic[1:i]
   }
   else khat = k
-  
+
   return(list(khat=khat,G=G,u=u,aic=aic,stopped=(i<k)))
 }
 
@@ -261,10 +261,10 @@ function(y, A, b, eta, Sigma, bits=NULL) {
   temp = sum(eta*y)
    vv=as.numeric(matrix(eta,nrow=1,ncol=nn)%*%Sigma%*%eta)
    cc = Sigma%*%eta/vv
-   
+
  z=(diag(nn)-matrix(cc,ncol=1)%*%eta)%*%y
     rho=A%*%cc
-   
+
   vec = (b- A %*% z)/rho
   vlo = suppressWarnings(max(vec[rho<0]))
   vup = suppressWarnings(min(vec[rho>0]))
@@ -280,7 +280,7 @@ mypoly.int.lee=
     # compute sel intervals from poly lemmma, full version from Lee et al for full matrix Sigma
 
   temp = sum(eta*y)
-  
+
   xg = seq(gridrange[1]*sd,gridrange[2]*sd,length=gridpts)
   fun = function(x) { tnorm.surv(temp,x,sd,vlo,vup,bits) }
 
@@ -291,7 +291,7 @@ mypoly.int.lee=
     int = -int[2:1]
     tailarea = tailarea[2:1]
   }
- 
+
   return(list(int=int,tailarea=tailarea))
 }
 
@@ -302,3 +302,55 @@ mydiag=function(x){
     if(length(x)>1) out=diag(x)
        return(out)
    }
+
+
+##' Confidence interval from post-selection inference (Borrowed from
+##' https://github.com/linnylin92/binSegInf)
+##'
+##' @param y numeric vector
+##' @param G Gamma matrix
+##' @param u u vector
+##' @param v contrast numeric vector
+##' @param sigma numeric to denote the sd of the residuals
+##' @param alpha numeric between 0 and 1 with default of 0.95. This is the
+##' significance level, guaranteeing that alpha percentage
+##' of the intervals will cover the true parameter.
+##' @param gridsize numeric to denote how fine of a grid to invert the hypothesis
+##' test
+##' @param alternative string of either "one.sided" or "two.sided" for the
+##' alternative. If one.sided, the alternative means the test statistic is positive.
+##' @param precBits precision of Rmpfri
+##'
+##' @return a vector of two numbers, the lower and upper end of the confidence interval
+##' @export
+ci <- function(y, G, u, v, sigma = 1, alpha = 0.95,
+  gridsize = 250, alternative = c("two.sided", "one.sided"), bits=NULL){
+
+  alternative <- match.arg(alternative, c("two.sided", "one.sided"))
+
+  diff <- max(y) - min(y)
+  seq.val <- seq(-2*diff, 2*diff, length.out = gridsize)
+  ## pvalue <- pvalue(y, polyhedra, contrast, sigma, null_mean = seq.val, precBits = precBits)
+  pvalue <- poly.pval(y,G,u,v,sigma,bits)
+
+  if(alternative == "two.sided"){
+    idx <- c(.select_index(pvalue, (1-alpha)/2, T), .select_index(pvalue, 1-(1-alpha)/2, F))
+    c(seq.val[idx[1]], seq.val[idx[2]])
+  } else {
+    idx <- .select_index(pvalue, (1-alpha), T)
+    c(seq.val[idx], Inf)
+  }
+}
+
+.select_index <- function(vec, alpha, lower = T){
+  idx <- ifelse(lower, min(which(vec >= alpha)), max(which(vec <= alpha)))
+  if(length(idx) == 0 | is.na(idx) | is.infinite(idx)){
+    warning("Numeric precision suspected to be too low")
+    if(lower) return(1) else return(length(vec))
+  }
+
+  if(lower & vec[idx] > alpha & idx > 1) idx <- idx - 1
+  if(!lower & vec[idx] < alpha & idx < length(vec)) idx <- idx + 1
+
+  idx
+}
