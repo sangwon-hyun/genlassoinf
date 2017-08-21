@@ -2,5 +2,6 @@
 .Rd
 \#*\#
 .Rdata
+.RData
 .pdf
 output/*

@@ -1,24 +1,23 @@
 ## MAKE sure you're working from [dropboxfolder]/code
-source("settings.R")
-source('selectinf/selectiveInference/R/funs.inf.R')
-source('funs.R')
-source('dualPathSvd2.R')
-library(genlasso)
-library(Matrix)
-library(RColorBrewer)
-load(file="examples/stockData.RData")
-outputdir = "output"
-codedir="."
+## source("settings.R")
+## source('selectinf/selectiveInference/R/funs.inf.R')
+## source('funs.R')
+## source('dualPathSvd2.R')
+## library(genlasso)
+## library(Matrix)
+## library(RColorBrewer)
+load(file="../main/paper/data/stockData.RData")
+outputdir = "../main/paper/data/"
 
 # Format data and response
 center = function(vec){
   as.numeric(scale(vec, center=TRUE,scale=FALSE))
-}  
+}
 log.serial.transform = function(vec){
   ratios =  vec[2:length(vec)] / vec[1:(length(vec)-1)]
   logratios = log(ratios)
   return(logratios)
-}  
+}
 X.uncentered = tricky_prices[,c(1,2,3)]#c(1,2,3,4,5)
 ## matplot(X.uncentered)
 ## matplot(tricky_prices[,30],type='o',pch=sapply(1:30,toString))
@@ -28,7 +27,7 @@ TT = nrow(X)
 J = ncol(X)
 
 ## This setting with any noise detects a spurious cut
-beta0 = c(rep(c(-10,10,-10),each=TT/3),-10,-10, 
+beta0 = c(rep(c(-10,10,-10),each=TT/3),-10,-10,
           ## rep(c(-10,10),each=TT/2),10,  # (-5 and 5)
           ## rep(c(10,10,10),each=TT))   #
           rep(10,each=TT))/10
@@ -57,11 +56,13 @@ pch=16
 w=6;h=3;
 xlab = "Location"
 ylab = ""
-lty.knot=3
-lwd.knot=1.5
-lcol.knot="blue"#"grey50"
-lcol.knot.before.declutter="grey85"
-cols = lcols.beta = brewer.pal(3,"Set2")
+## lty.knot=3
+lty.knot=2
+## lwd.knot=1.5
+lcol.knot="blue"#"grey40"
+## lcol.knot.before.declutter="grey85" ## It was pointed out that this was too light
+## lcol.knot.before.declutter="grey50"
+cols = lcols.beta = RColorBrewer::brewer.pal(3,"Set2")
 
 lwd.beta = 2
 lty.beta = 1
@@ -72,7 +73,7 @@ xx = (final.model.decluttered - (membership-1)*TT)
 xx.before.declutter = (final.model.orig - (membership.before.declutter-1)*TT)
 mar = c(2,3.5,1,1)
 mar3 = c(3.5,3.5,1,1)
-my.est = ginv(X.tilde) %*% f0$beta[,stop.time+1]
+my.est = MASS::ginv(X.tilde) %*% f0$beta[,stop.time+1]
 my.est.list = list(my.est[1:TT],
                    my.est[(TT+1):(2*TT)],
                    my.est[(2*TT+1):(3*TT)])
@@ -91,7 +92,7 @@ for(jj in 1:3){
 
     if(jj==3){ par(mar=mar3)} else {par(mar=mar)}
 
-    ## collect some things 
+    ## collect some things
     rng = range(betalist[[jj]])
     this.xx = xx[membership==jj]
     this.xx.before.declutter = xx.before.declutter[membership.before.declutter==jj]
@@ -109,8 +110,8 @@ for(jj in 1:3){
     lines(x=(1:TT)-jj+1, y=this.beta, col = lcols.beta[jj], lwd = lwd.beta)
     if(jj==3){ axis(1);title(xlab=xlab,line=1.9) } else { axis(1)}
     axis(2);{title(ylab=ylab, line = 2.1)}
-    
-    ## Label locations 
+
+    ## Label locations
     myletters = toupper(letters[1:length(this.xx)] )
     this.yy = ylim[2]-(ylim[2]-ylim[1])/10 + (-sum(membership==jj)+1):(0)/10
     if(jj==3) this.yy = this.yy+0.2
@@ -132,7 +133,7 @@ for(jj in 1:3){
                col = c(rep("black",length(myletters)),lcol.knot, lcol.knot.before.declutter,lcol.est,lcols.beta[jj]),
                pch = c(myletters, rep(NA,4)),
                legend = c(paste("p-value =",this.pseg),
-                 "Original changepoints","Decluttered changepoints","Estimate","Truth"),
+                 "Decluttered changepoints","Original changepoints", "Estimate","Truth"),
                              ## paste(myletters,
                              ##  rep(":", length(this.pseg)),
                ## pch=rep(NA,length(this.pseg)),
@@ -142,13 +143,13 @@ for(jj in 1:3){
                bty="o",
                box.lwd = 1)
         ## text.width=c(0.5,0.5,0.5,0.5))
-       } else { 
+       } else {
         legend(position,
                lty = c(rep(NA,length(myletters)),lty.est,lty.beta),
                lwd = c(rep(NA,length(myletters)),lwd.est,lwd.beta),
                col = c(rep("black",length(myletters)),lcol.est,lcols.beta[jj]),
                pch = c(myletters,rep(NA,2)),
-               legend = c(paste("p-value =",this.pseg),"Estimate", "Truth"), 
+               legend = c(paste("p-value =",this.pseg),"Estimate", "Truth"),
                              ## paste(myletters,
                              ##  rep(":", length(this.pseg)),
                ## pch=rep(NA,length(this.pseg)),
@@ -158,7 +159,7 @@ for(jj in 1:3){
                bty="o",
                box.lwd = 1, inset=inset)
                ## text.width=c(0.5,0.5,0.5,0.5))
-   } 
+   }
     }
    graphics.off()
 }

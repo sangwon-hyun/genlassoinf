@@ -1,6 +1,5 @@
 library(genlassoinf)
-outputdir = "."
-codedir = "."
+outputdir = "~/Desktop"
 ## library(genlasso)
 ## library(RColorBrewer)
 
@@ -29,7 +28,8 @@ codedir = "."
   f0 = dualpathSvd2(y0, D, maxsteps = maxsteps, verbose=TRUE)
 
   # Collect Gammat at stop time
-  bic   = get.modelinfo(f0,y0,sigma,maxsteps,D=D, stoprule = 'bic')$ic
+maxsteps=10
+  bic   = get.modelinfo(f0,y0,sigma,maxsteps, stoprule = 'bic')$ic
   stop.time = which.rise(bic,consec=consec) - 1
   stop.time = pmin(stop.time,n-consec-1)
 
@@ -41,7 +41,8 @@ codedir = "."
                                      condition.step = stop.time+consec,
                                      stoprule = "bic", sigma=sigma, type='tf',
                                      consec=consec, maxsteps=maxsteps,D=D)
-  G = Gobj.new.with.stoptime$Gammat
+  ## G = Gobj.new.with.stoptime$Gammat
+G = Gobj.new.with.stoptime$G
   u = Gobj.new.with.stoptime$u
 
   # Check correctness of polyhedron:
@@ -92,7 +93,8 @@ codedir = "."
         contrasts[[ii]] = v
 
         mycoord = final.model[ii]
-        mypval  = pval.fl1d(y0,G,dik=v,sigma,u=u)
+        ## mypval  = pval.fl1d(y0,G,dik=v,sigma,u=u)
+        mypval  = poly.pval(y=y0,G=G,v=v,u=u,sigma=sigma)$pv
         pvals[ii] = mypval
         coords[ii] = mycoord
 
@@ -126,11 +128,12 @@ lcol.est = 'blue'
 lwd.est = 2
 lwd.signal=2
 pcol.dat = "grey50"
-## pcols.contrast = brewer.pal(n=3,name="Set2")
-pcols.contrast.tf = brewer.pal(n=3,name="Set2")
+## pcols.contrast = RColorBrewer::brewer.pal(n=3,name="Set2")
+pcols.contrast.tf = RColorBrewer::brewer.pal(n=3,name="Set2")
 pcols.contrast.tf[2] = "grey75"
 ## lwd.knots = c(1,1)
-pchs.contrast.tf = c(15,17)
+## pchs.contrast.tf = c(15,17)## This was before the first EJS revision
+pchs.contrast.tf = c(17,15)
 ylim=c(-5,20)
 ylab = ""
 xlab = "Location"
