@@ -36,7 +36,7 @@ library(RColorBrewer)
   f0 = dualpathSvd2(y0, D, maxsteps = maxsteps)
 
   ## Collect Gammat at stop time
-  bic   = get.modelinfo(f0,y0,sigma,maxsteps,D=D, stoprule = 'bic')$ic
+  bic   = get.modelinfo(f0,y0,sigma,maxsteps, stoprule = 'bic')$ic
   stop.time = which.rise(bic,consec=consec) - 1
   stop.time = pmin(stop.time,n-consec-1)
 
