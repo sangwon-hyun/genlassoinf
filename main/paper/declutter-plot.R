@@ -1,14 +1,7 @@
-# Make sure you're working from [dropboxfolder]/code
-## source('funs.R')
-## source('testfuns.R')
-## source('dualPathSvd2.R')
-## source('selectinf/selectiveInference/R/funs.inf.R')
-## outputdir = "output"
-## codedir = "."
-
+library(genlassoinf)
 outputdir = "~/Desktop"
-library(genlasso)
-library(RColorBrewer)
+## library(genlasso)
+## library(RColorBrewer)
 
 ###########################################
 ### Generate data for declutter example ###
@@ -48,7 +41,8 @@ library(RColorBrewer)
                                      condition.step = stop.time+consec,
                                      stoprule = "bic", sigma=sigma, type='tf',
                                      consec=consec, maxsteps=maxsteps,D=D)
-  G = Gobj.new.with.stoptime$Gammat
+  ## G = Gobj.new.with.stoptime$Gammat
+G = Gobj.new.with.stoptime$G
   u = Gobj.new.with.stoptime$u
 
   # Check correctness of polyhedron:
@@ -99,7 +93,8 @@ library(RColorBrewer)
         contrasts[[ii]] = v
 
         mycoord = final.model[ii]
-        mypval  = pval.fl1d(y0,G,dik=v,sigma,u=u)
+        ## mypval  = pval.fl1d(y0,G,dik=v,sigma,u=u)
+        mypval  = poly.pval(y=y0,G=G,v=v,u=u,sigma=sigma)$pv
         pvals[ii] = mypval
         coords[ii] = mycoord
 
@@ -133,10 +128,11 @@ lcol.est = 'blue'
 lwd.est = 2
 lwd.signal=2
 pcol.dat = "grey50"
-## pcols.contrast = brewer.pal(n=3,name="Set2")
-pcols.contrast.tf = brewer.pal(n=3,name="Set2")
+## pcols.contrast = RColorBrewer::brewer.pal(n=3,name="Set2")
+pcols.contrast.tf = RColorBrewer::brewer.pal(n=3,name="Set2")
 pcols.contrast.tf[2] = "grey75"
 ## lwd.knots = c(1,1)
+## pchs.contrast.tf = c(15,17)## This was before the first EJS revision
 pchs.contrast.tf = c(17,15)
 ylim=c(-5,20)
 ylab = ""
