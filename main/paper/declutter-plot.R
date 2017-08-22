@@ -1,7 +1,5 @@
 library(genlassoinf)
-outputdir = "~/Desktop"
-## library(genlasso)
-## library(RColorBrewer)
+outputdir = "../main/paper/data"
 
 ###########################################
 ### Generate data for declutter example ###
@@ -23,14 +21,14 @@ outputdir = "~/Desktop"
   print(myseed)
   set.seed(myseed) #set.seed(53)
 
+maxsteps=10
   y0 = beta0 + rnorm(length(beta0),0,sigma)
   D = makeDmat(n,type="tf",order=1)
   f0 = dualpathSvd2(y0, D, maxsteps = maxsteps, verbose=TRUE)
 
   # Collect Gammat at stop time
-maxsteps=10
-  bic   = get.modelinfo(f0,y0,sigma,maxsteps, stoprule = 'bic')$ic
-  stop.time = which.rise(bic,consec=consec) - 1
+  bic   = get.modelinfo(obj=f0,consec=consec,sigma=sigma,maxsteps=maxsteps, stoprule = 'bic',verbose=TRUE)$ic
+  stop.time = which.rise(icvec=bic,consec=consec) - 1
   stop.time = pmin(stop.time,n-consec-1)
 
   if(!(stop.time+consec < maxsteps)){
@@ -191,7 +189,7 @@ for(kk in 2:1){
 
 ## Generate data and plot (in one swipe)
     set.seed(29)
-    sigma = .5
+    sigma = 0.5
     lev1=2; lev2=5; lev3=3; n = 60
     beta0 = rep(c(lev1,lev2,lev3),each=n/3)
     set.seed(0)
@@ -200,7 +198,7 @@ for(kk in 2:1){
         D = makeDmat(n,ord=0)
         maxsteps=10
         f0 = dualpathSvd2(y0,D,maxsteps=10)
-        bic = get.modelinfo(f0,y0,sigma,D=D,maxsteps=10)$ic
+        bic = get.modelinfo(f0,y0,sigma,maxsteps=10)$ic
         consec=2
         stop.time = which.rise(bic,consec)-1
         states = get.states(f0$action)
