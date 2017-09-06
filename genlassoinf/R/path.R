@@ -448,7 +448,8 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
     ss = c(NA,ss)
     states = get.states(action)
     cp = abs(action)
-    cp.sign = sign(action)
+    ## cp.sign = sign(action)
+    cp.sign = s
 
     mypath = list(lambda=lams,beta=beta,fit=beta,hit=h,df=df,y=y,ss=ss,u=u,
                   states=states, completepath=completepath,bls=y,
