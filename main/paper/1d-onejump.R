@@ -1,18 +1,22 @@
+## Synopsis: For one-jump example in figure 8, generate data and plots and
+## confidence intervals
+
 outputdir = "../output"
 
 ## Generate p-values and simulation quantities
-nsim = 2000
-n = 10
+nsim = 100
+n = 60
 sigma = 1
 lev1= 0
 ngrain = 3
 lev2list = seq(from=0,to=2, length(ngrain))#c(0,1,2)
 numsteps=1
-spike   = figure8.sim(testtype = "spike", nsim=nsim,sigma=sigma,lev1=lev1,
-                       lev2list=lev2list,numsteps=numsteps,verbose=T)
-segment = figure8.sim(testtype = "segment", nsim=nsim,sigma=sigma,lev1=lev1,
-                       lev2list=lev2list,numsteps=numsteps,verbose=T)
+spike = onejump.naive.sim(testtype = "spike", nsim=nsim,sigma=sigma,lev1=lev1,
+                          lev2list=lev2list,numsteps=numsteps,verbose=T, loctype="exact")
+segment = onejump.naive.sim(testtype = "segment", nsim=nsim,sigma=sigma,lev1=lev1,
+                            lev2list=lev2list,numsteps=numsteps,verbose=T, loctype="exact")
 save(file.path(outputdir,"onejump-example.Rdata"))
+
 
 ## Plot settings
 load(file.path(outputdir,"onejump-example.Rdata"))
@@ -70,7 +74,7 @@ title(main=expression("Data example"))
 graphics.off()
 
 ## Create QQ plot of correct location p-values (top middle and right figure)
-contrast.type = c("Spike", "Segment")
+contrast.type = c("spike", "segment")
 dat = list(spike=spike, segment=segment)
 for(jj in 1:2){
     pdf(file.path(outputdir,paste0("onejump-example-qqplot-",tolower(contrast.type[jj]),".pdf")),
@@ -109,9 +113,15 @@ twocoverages = lapply(1:2, function(jj){
     mydat = dat[[contrast.type[jj]]]
     coverages = sapply(1:ngrain, function(igrain){
         ci.list = (dat[[jj]])$cis.correctlist[[igrain]]
-        d = dat[[jj]]$d[[igrain]]
-        truejumpsize = sum(d * onejump(lev=lev2list[[igrain]],n=n))
-        coverage = sum(sapply(ci.list, function(myci) return(myci[1] < truejumpsize)))/nsim
+        ds = dat[[jj]]$dlist[[igrain]]
+        lev2 = lev2list[[igrain]]
+        ## truejumpsize = sum(d * onejump(lev=lev2list[[igrain]],n=n))
+        ## coverage = sum(sapply(ci.list, function(myci) return(myci[1] < truejumpsize)))/nsim
+        covered = Map(function(myci, myd){
+            truejumpsize = sum(myd * onejump(lev=lev2,n=n))
+            return(myci[1] < truejumpsize)
+        }, ci.list,ds)
+        coverage = sum(unlist(covered))/nsim
         return(coverage)
     })
     coverages = rbind(lev2list,coverages)
@@ -121,4 +131,3 @@ twocoverages = lapply(1:2, function(jj){
 names(twocoverages) = contrast.type
 xtable::xtable(twocoverages[["spike"]])
 xtable::xtable(twocoverages[["segment"]])
-
