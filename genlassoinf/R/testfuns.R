@@ -226,85 +226,100 @@ alternjump.y <- function(returnbeta = F, lev1 = 1, lev2 = 5,  n = 60,  sigma = .
 
 
 
-##' Function to collect pvals, for an introductory example in Example section
-figure8.sim <- function(testtype = c("spike","segment"), nsim, sigma, lev1,
-                         lev2list, numsteps,verbose=T, alpha=.05){
+##' Function to collect pvals, for Figure 8 and Appendix figure 8 and 15
+onejump.naive.sim <- function(testtype = c("spike","segment"), nsim, sigma, lev1,
+                         lev2list, numsteps,verbose=T, alpha=.05, loctype = c("exact", "oneoff")){
 
     testtype <- match.arg(testtype)
+    loctype <- match.arg(loctype)
 
-    ## Initialize things
-    pvals.correctlist = cis.correctlist = list()
-    dlist = list()
+    if(loctype=="exact"){
 
-    ## Collect p values when detection is correct
-    for(ii in 1:length(lev2list)){
-        lev2 = lev2list[ii]
-        cat("\n", "lev2 is ", lev2, "\n")
-        alldone = F
-        jj = 0 ## Counter for how many hits we've had, on location lev/2
-        pvals.correct = c()
-        cis.correct = list()
-        d = c()
+        ## Initialize things
+        pvals.correctlist = cis.correctlist = list()
+        dlist = list()
+
+        ## Collect p values when detection is correct
+        for(ii in 1:length(lev2list)){
+            lev2 = lev2list[ii]
+            cat("\n", "lev2 is ", lev2, "\n")
+            alldone = F
+            jj = 0 ## Counter for how many hits we've had, on location lev/2
+            pvals.correct = c()
+            cis.correct = list()
+            ds = list()
+            while(!alldone){
+                y = onejump(lev2,n) + rnorm(n,0,sigma)
+                path   = dualpathSvd2(y,dual1d_Dmat(length(y)),maxsteps=numsteps,approx=T)
+                G = path$Gobj.naive$G
+                u = path$Gobj.naive$u
+                d      = getdvec(obj=path, y=y, k=1, type=testtype)
+                if(path$pathobj$B[1] == n/2){
+                    jj = jj+1
+                    pvals.correct[jj] = poly.pval(y=y,G=G,v=d,u=u,sigma=sigma)$pv
+                    cis.correct[[jj]] = confidence_interval(y, list(gamma=G,u=u), d,
+                                                            sigma=1, alpha=alpha,
+                                                            alternative="one.sided",
+                                                            fac=10)
+                    ds[[jj]] = d
+                    if(verbose) cat("\r", jj, "of", nsim)
+                }
+                alldone = (jj == nsim)
+            }
+            dlist[[ii]] = ds
+            pvals.correctlist[[ii]] = pvals.correct
+            cis.correctlist[[ii]] = cis.correct
+        }
+
+        return(list(pvals.correctlist = pvals.correctlist,
+                    cis.correctlist = cis.correctlist,
+                    dlist = dlist,
+                    ## pvals.oneoff  = pvals.oneoff,
+                    lev1 = lev1,
+                    lev2list = lev2list,
+                    nsim = nsim,
+                    sigma = sigma,
+                    alpha = alpha
+                    ## kk = kk,
+                    ## jj = jj,
+                    ## prop.oneoff = kk/jj,
+                    ))
+
+    } else if (loctype == "oneoff") {
+
+        ## collect p values from when detection is one off
+        if(verbose) cat('\n','collecting p-values for 1 off','\n')
+        alldone=F
+        jj=ii=kk=0
         while(!alldone){
             y = onejump(lev2,n) + rnorm(n,0,sigma)
-            path   = dualpathSvd2(y,dual1d_Dmat(length(y)),maxsteps=numsteps,approx=T)
+            path   = dualpathSvd2(y0,dual1d_Dmat(n),maxsteps=numsteps,approx=T)
             G = path$Gobj.naive$G
             u = path$Gobj.naive$u
-            d      = getdvec(obj=path, y=y, k=1, type=testtype)
-            if(path$pathobj$B[1] == n/2){
+            d      = getdvec(obj=path, y=y0, k=1, type=testtype)
+            if(abs(path$pathobj$B[1] - n/2) == 1){
+                pvals.oneoff[jj] = poly.pval(y=y0,G=G,v=d,u=u,sigma=sigma)$pv
                 jj = jj+1
-                pvals.correct[jj] = poly.pval(y=y,G=G,v=d,u=u,sigma=sigma)$pv
-                cis.correct[[jj]] = confidence_interval(y, list(gamma=G,u=u), d,
-                                                        sigma=1, alpha=alpha,
-                                                        alternative="one.sided",
-                                                        fac=10)
                 if(verbose) cat("\r", jj, "of", nsim)
             }
+            kk = kk+1
             alldone = (jj == nsim)
         }
-        dlist[[ii]] = d
-        pvals.correctlist[[ii]] = pvals.correct
-        cis.correctlist[[ii]] = cis.correct
+
+        return(list(pvals.oneoff = pvals.oneoff,
+                    lev1 = lev1,
+                    lev2list = lev2list,
+                    nsim = nsim,
+                    sigma = sigma,
+                    alpha = alpha,
+                    kk = kk,
+                    jj = jj,
+                    prop.oneoff = kk/jj
+                    ))
+
+    } else {
+        stop(paste(loctype, "type of |loctype| isn't handled!"))
     }
-
-    if(verbose) cat('\n')
-
-    ## # collect p values from when detection is one off
-    ## if(verbose) cat('\n','collecting p-values for 1 off','\n')
-    ## alldone=F
-    ## jj=ii=kk=0
-    ## while(!alldone){
-    ##     y0     = onejump.y(returnbeta=F,lev1=lev1,lev2=lev2,sigma=sigma,n=n)
-    ##     path   = dualpathSvd2(y0,dual1d_Dmat(n),maxsteps=numsteps,approx=T)
-    ##     G = path$Gobj.naive$G
-    ##     u = path$Gobj.naive$u
-    ##     d      = getdvec(obj=path, y=y0, k=1, type=testtype)
-    ##     if(abs(path$pathobj$B[1] - n/2) == 1){
-    ##         pvals.oneoff[jj] = poly.pval(y=y0,G=G,v=d,u=u,sigma=sigma)$pv
-    ##         jj = jj+1
-    ##         if(verbose) cat("\r", jj, "of", nsim)
-    ##     }
-    ##     kk = kk+1
-    ##     alldone = (jj == nsim)
-    ## }
-
-    ## if(verbose) cat('\n')
-
-    return(list(pvals.correctlist = pvals.correctlist,
-                cis.correctlist = cis.correctlist,
-                dlist = dlist,
-                ## pvals.oneoff  = pvals.oneoff,
-                lev1 = lev1,
-                lev2 = lev2,
-                lev2list = lev2list,
-                nsim = nsim,
-                sigma = sigma,
-                alpha = alpha,
-                meanfun = meanfun
-                ## kk = kk,
-                ## jj = jj,
-                ## prop.oneoff = kk/jj,
-                ))
 }
 
 
