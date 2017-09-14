@@ -1,11 +1,10 @@
-## Synopsis: For one-jump example in figure 8, generate data and plots and
-## confidence intervals
+## Synopsis: For up-then-down-jump example in figure 8, generate data and plots
+## and /conditional/ confidence intervals, given that the right location was
+## selected.
 
 outputdir = "../output"
 
-
 ### Up-then-down signal Example ######
-
 
 ## Generate p-values and simulation quantities
 #  # Generate stuff
@@ -13,58 +12,13 @@ outputdir = "../output"
 #  sigma = 1
 #  nsim = 10000
 #
-#  # don't run unless necessary, find Rdata file first
-#  # load(file=file.path(outputdir,"hybridsegmentmadecut-uncond.Rdata")))
-#    lev2 = lev1 + 2
-#    p1spike = p1segment = p21spike = p21segment = rep(NA,nsim)
-
-#  # calculate CONDITIONAL power after one or two steps
-#    numsteps = 2
-#    ii = 0
-#    kk = 0
-#    jj = 0
-#    while(kk <= nsim & jj <= nsim){
-#      ii = ii + 1
-#      # generate data and obtain path + polyhedron
-#      y0 <- alternjump.y(lev1 = lev1, lev2 = lev2, sigma = sigma)
-#      beta0 <- alternjump.y(returnbeta=T, lev1=lev1, lev2=lev2, sigma = sigma)
-#      f0 <- dualpathSvd2(y0, dual1d_Dmat(length(y0)), maxsteps = numsteps,verbose=FALSE,approx=TRUE)
-#
-#      if(f0$pathobj$B[1] %in% c(20,40)){
-#        # form polyhedron and contrasts
-#        G               <- getGammat(obj=f0,y=y0,k=1, usage = "dualpathSvd")
-#        d1spike         <- getdvec(obj=f0,y=y0,k=1,type="spike",usage="dualpathSvd", matchstep=T)
-#        d1segment       <- getdvec(obj=f0,y=y0,k=1,type="segment",usage="dualpathSvd", matchstep=T)
-#
-#        #store things
-#        p1spike[kk]              <- pval.fl1d(y0,G,d1spike,sigma, approx=TRUE, approxtype = "rob", threshold=TRUE)
-#        p1segment[kk]       <- pval.fl1d(y0,G,d1segment,sigma, approx=TRUE, approxtype = "rob", threshold=TRUE)
-#        kk=kk+1
-#      }
-
-#     if(f0$pathobj$B[1:2] == c(20,40) | f0$pathobj$B[1:2] == c(40,20) ){
-#        # form polyhedron and contrasts
-#        G2              <- getGammat(obj=f0,y=y0,k=numsteps,usage="dualpathSvd")
-#        d1spike         <- getdvec(obj=f0,y=y0,k=1,type="spike",usage="dualpathSvd",matchstep=T)
-#        d1segment       <- getdvec(obj=f0,y=y0,k=1,klater=2,type="segment",usage="dualpathSvd",matchstep=F)
-#
-#        #store things
-#        p21spike[kk]         <- pval.fl1d(y0,G2,d1spike,  sigma, approx=TRUE, approxtype = "rob", threshold=TRUE)
-#        p21segment[kk]       <- pval.fl1d(y0,G2,d1segment,sigma, approx=TRUE, approxtype = "rob", threshold=TRUE)
-#        jj=jj+1
-#      }
-#      cat('\r', c(ii,kk,kk-jj))
-#    }
-#    propcorrect.step1 = kk/ii
-#    propcorrect.step2 = jj/ii
-#    save(list=c("lev1","lev2","sigma","p1spike", "p21spike", "p1segment", "p21segment", "nsim", "ii","jj","kk","propcorrect.step1", "propcorrect.step2"), file=file.path(outputdir,"updown-example.Rdata"))
-
-
 
 ## Plot settings
-## load(file=file.path(outputdir,"updown-example.Rdata"))
-oldoutputdir = "/home/justin/Dropbox/research/genlassoinf/code/output"
-load(file=file.path(oldoutputdir,"updown-example.Rdata"))
+load(file=file.path(outputdir,"updown-example.Rdata"))
+## oldoutputdir = "/home/justin/Dropbox/research/genlassoinf/code/output"
+## oldoutputdir = "/media/shyun/Bridge/Dropbox/research/genlassoinf/code/output"
+## load(file=file.path(oldoutputdir,"updown-example.Rdata"))
+
 
 w=5
 h=5
@@ -129,7 +83,6 @@ title(main=expression("Data example"))
 graphics.off()
 
 ## QQ plot of correct location p-values (bottom, middle and right plot)
-
 pspikes = list(p1spike, p21spike)
 psegments = list(p1segment, p21segment)
 pvals.list = list(pspikes, psegments)
@@ -163,3 +116,47 @@ for(jj in 1:2){
     }
     graphics.off()
 }
+
+
+
+## Create Confidence interval coverage tables (change appropriately)
+contrast.type = c("spike", "segment")
+dat = list(spike=spike, segment=segment)
+
+mn = alternjump.y(lev1=lev1, lev2=lev2, sigma=sigma,returnbeta=TRUE)
+coverage1 = sum(sapply(1:icount, function(ii){
+    myv = ds1[[ii]]
+    myci = cis1.segment[ii,]
+    truejumpsize = sum(myv*mn)
+    return(myci[1]<truejumpsize)
+}))/icount
+
+coverage21 = sum(sapply(1:icount, function(ii){
+    myv = ds1[[ii]]
+    myci = cis1.segment[ii,]
+    truejumpsize = sum(myv*mn)
+    return(myci[1]<truejumpsize)
+}))/icount
+
+
+sum(apply(cis21.segment, 1, function(myci) return(myci[1] < truejumpsize)))/nrow(cis21.segment)
+
+sum(apply(cis1.segment, 1, function(myci) return(myci[1] < truejumpsize)))/nrow(cis1.segment)
+
+
+twocoverages = lapply(1:2, function(jj){
+    mydat = dat[[contrast.type[jj]]]
+    coverages = sapply(1:ngrain, function(igrain){
+        ci.list = (dat[[jj]])$cis.correctlist[[igrain]]
+        d = dat[[jj]]$d[[igrain]]
+        truejumpsize = 2
+        coverage = sum(sapply(ci.list, function(myci) return(myci[1] < truejumpsize)))/nsim
+        return(coverage)
+    })
+    coverages = rbind(lev2list,coverages)
+    rownames(coverages) = c("delta", "coverages")
+    return(coverages)
+})
+names(twocoverages) = contrast.type
+xtable::xtable(twocoverages[["spike"]])
+xtable::xtable(twocoverages[["segment"]])
