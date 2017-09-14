@@ -79,9 +79,12 @@ make.v.tf.fp = function(test.knot, adj.knot, test.knot.sign, D){# fp for first p
 ##' @param y data vector (same as the one used to produce path)
 ##' @param k algorithm's step to use.
 ##' @param klater later step to condition on
-get_v_1dfusedlasso = function(obj, y=NULL, k, klater = k, type =c("spike","segment"), n){
+get_v_1dfusedlasso <- function(obj, y=NULL, k, klater = k,
+                               type =c("spike","segment"), n,
+                               scaletype = c("none","segmentmean", "unitnorm")){
 
   type <- match.arg(type)
+  scaletype <- match.arg(scaletype)
   if(k > klater) stop("Attempting to form contrast from a later step than the conditioning step.")
 
     ## ik and sk are the index and sign of the jump selected at step k
@@ -90,12 +93,12 @@ get_v_1dfusedlasso = function(obj, y=NULL, k, klater = k, type =c("spike","segme
     breaks = (obj$pathobjs)$B
 
     if(type == "spike"){
-
         v = rep(0,length(y))
-        v[ik] = -1
-        v[ik+1] = 1
+        left.ind = ik
+        right.ind = ik+1
+        v[left.ind] = -1
+        v[right.ind] = 1
         v = sk * v
-
     } else if (type == "segment"){
 
         ## Extract usual segment test endpoints
@@ -106,15 +109,26 @@ get_v_1dfusedlasso = function(obj, y=NULL, k, klater = k, type =c("spike","segme
 
         ## form vector
         v = rep(0,length(y))
-        v[Kmin:K] <- (Kmax - K)/(Kmax - Kmin + 1)
-        v[(K+1):Kmax] <- -(K - Kmin + 1)/(Kmax - Kmin + 1)
+        left.ind = Kmin:K
+        right.ind = (K+1):Kmax
+        v[left.ind] <- (Kmax - K)/(Kmax - Kmin + 1)
+        v[right.ind] <- -(K - Kmin + 1)/(Kmax - Kmin + 1)
         v <- -sk *v
 
     } else {
-
       stop("Not coded yet!")
-
     }
+
+    if(scaletype == "unitnorm"){
+        v = v/sqrt(sum(v*v))
+    }
+    if (scaletype == "segmentmean"){
+        left.sign = sign(v[left.ind[1]])
+        right.sign = sign(v[right.ind[1]])
+        v[left.ind] = 1/length(left.ind) * left.sign
+        v[right.ind] = 1/length(right.ind) * right.sign
+    }
+
     return(v)
 }
 

@@ -4,15 +4,6 @@
 
 outputdir = "../output"
 
-### Up-then-down signal Example ######
-
-## Generate p-values and simulation quantities
-#  # Generate stuff
-#  lev1  = 0
-#  sigma = 1
-#  nsim = 10000
-#
-
 ## Plot settings
 load(file=file.path(outputdir,"updown-example.Rdata"))
 ## oldoutputdir = "/home/justin/Dropbox/research/genlassoinf/code/output"
@@ -118,45 +109,32 @@ for(jj in 1:2){
 }
 
 
+coverages = matrix(NA,nrow=3,ncol=3)
+rownames(coverages) = c("delta", "coverages")
 
-## Create Confidence interval coverage tables (change appropriately)
-contrast.type = c("spike", "segment")
-dat = list(spike=spike, segment=segment)
+for(lev in c(1,2,3)){
+    load(file=file.path(outputdir,"updown-example.Rdata"))
+    ## Create Confidence interval coverage tables (change appropriately)
+    contrast.type = c("spike", "segment")
+    dat = list(spike=spike, segment=segment)
 
-mn = alternjump.y(lev1=lev1, lev2=lev2, sigma=sigma,returnbeta=TRUE)
-coverage1 = sum(sapply(1:icount, function(ii){
-    myv = ds1[[ii]]
-    myci = cis1.segment[ii,]
-    truejumpsize = sum(myv*mn)
-    return(myci[1]<truejumpsize)
-}))/icount
+    mn = alternjump.y(lev1=lev1, lev2=lev2, sigma=sigma,returnbeta=TRUE)
+    coverage1 = sum(sapply(1:icount, function(ii){
+        myv = ds1[[ii]]
+        myci = cis1.segment[ii,]
+        truejumpsize = sum(myv*mn)
+        return(myci[1]<truejumpsize)
+    }))/icount
 
-coverage21 = sum(sapply(1:icount, function(ii){
-    myv = ds1[[ii]]
-    myci = cis1.segment[ii,]
-    truejumpsize = sum(myv*mn)
-    return(myci[1]<truejumpsize)
-}))/icount
-
-
-sum(apply(cis21.segment, 1, function(myci) return(myci[1] < truejumpsize)))/nrow(cis21.segment)
-
-sum(apply(cis1.segment, 1, function(myci) return(myci[1] < truejumpsize)))/nrow(cis1.segment)
+    coverage21 = sum(sapply(1:jcount, function(ii){
+        myv = ds1[[ii]]
+        myci = cis1.segment[ii,]
+        truejumpsize = sum(myv*mn)
+        return(myci[1]<truejumpsize)
+    }))/jcount
+}
 
 
-twocoverages = lapply(1:2, function(jj){
-    mydat = dat[[contrast.type[jj]]]
-    coverages = sapply(1:ngrain, function(igrain){
-        ci.list = (dat[[jj]])$cis.correctlist[[igrain]]
-        d = dat[[jj]]$d[[igrain]]
-        truejumpsize = 2
-        coverage = sum(sapply(ci.list, function(myci) return(myci[1] < truejumpsize)))/nsim
-        return(coverage)
-    })
-    coverages = rbind(lev2list,coverages)
-    rownames(coverages) = c("delta", "coverages")
-    return(coverages)
-})
 names(twocoverages) = contrast.type
 xtable::xtable(twocoverages[["spike"]])
 xtable::xtable(twocoverages[["segment"]])

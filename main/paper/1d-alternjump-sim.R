@@ -5,9 +5,9 @@ outputdir = "../output"
 
 ## Simulation settings
 lev1= 0
-lev2 = 2
+lev2 = 3
 sigma = 1
-maxcount = 100
+maxcount = 10000
 alpha = 0.05
 numsteps = 2
 isim = 0
@@ -17,8 +17,8 @@ icount = jcount = 0
 p1spike = p1segment = p21spike = p21segment = rep(NA, maxcount)
 ds1 = ds21 = list()
 cis1.segment = cis21.segment = matrix(NA,nrow=maxcount,ncol=2)
-cat("Simulations running with lev2=", lev, fill=TRUE)
-while(icount <= maxcount+1 & jcount <= maxcount+1){
+cat("Simulations running with lev2=", lev2, fill=TRUE)
+while(icount < maxcount & jcount < maxcount){
 
     printprogress(icount, maxcount)
     isim = isim + 1
@@ -37,8 +37,8 @@ while(icount <= maxcount+1 & jcount <= maxcount+1){
         ## Form contrasts
         G = f1$Gobj.naive$G
         u = f1$Gobj.naive$u
-        d1spike <- getdvec(obj=f1,y=y0,k=1,type="spike")
-        d1segment <- getdvec(obj=f1,y=y0,k=1,type="segment")
+        d1spike <- getdvec(obj=f1,y=y0,k=1,type="spike",scale="segmentmean")
+        d1segment <- getdvec(obj=f1,y=y0,k=1,type="segment",scale="segmentmean")
 
         ## Form p-values & one-sided confidence intervals
         p1spike[icount] <- poly.pval(y=y0, G=G, v=d1spike, u=u, sigma=sigma)$pv
