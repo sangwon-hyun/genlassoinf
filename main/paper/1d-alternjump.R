@@ -5,7 +5,7 @@
 outputdir = "../output"
 
 ## Plot settings
-load(file=file.path(outputdir,"updown-example.Rdata"))
+## load(file=file.path(outputdir,"updown-example.Rdata"))
 ## oldoutputdir = "/home/justin/Dropbox/research/genlassoinf/code/output"
 ## oldoutputdir = "/media/shyun/Bridge/Dropbox/research/genlassoinf/code/output"
 ## load(file=file.path(oldoutputdir,"updown-example.Rdata"))
@@ -109,32 +109,62 @@ for(jj in 1:2){
 }
 
 
-coverages = matrix(NA,nrow=3,ncol=3)
-rownames(coverages) = c("delta", "coverages")
+coverages = matrix(NA,nrow=5,ncol=3)
+coverages[1,] = c(1,2,3)
+rownames(coverages) = c("delta", "coverages-1-segment" , "coverages-1-spike", "coverages-21-segment",
+                        "coverages-21-spike")
+    ## contrast.type = c("spike", "segment")
 
-for(lev in c(1,2,3)){
-    load(file=file.path(outputdir,"updown-example.Rdata"))
-    ## Create Confidence interval coverage tables (change appropriately)
-    contrast.type = c("spike", "segment")
-    dat = list(spike=spike, segment=segment)
+for(lev2 in c(1,2,3)){
 
+    ## Load file
+    filename = paste0("updown-example-lev",lev2,".Rdata")
+    load(file=file.path(outputdir, filename))
+    ds1 = results$ds1
+    cis1.segment = results$cis1.segment
+    cis21.segment = results$cis21.segment
+    cis1.spike = results$cis1.spike
+    cis21.spike = results$cis21.spike
+    ds1spike = results$ds1spike
+    ds21spike = results$ds21spike
+    ds1segment = results$ds1segment
+    ds21segment = results$ds21segment
+    icount = results$icount
+    jcount = results$jcount
+
+    ## Create CI coverage tables (change appropriately)
     mn = alternjump.y(lev1=lev1, lev2=lev2, sigma=sigma,returnbeta=TRUE)
-    coverage1 = sum(sapply(1:icount, function(ii){
-        myv = ds1[[ii]]
+
+    coverage1segment = sum(sapply(1:icount, function(ii){
+        myv = ds1segment[[ii]]
         myci = cis1.segment[ii,]
         truejumpsize = sum(myv*mn)
         return(myci[1]<truejumpsize)
     }))/icount
 
-    coverage21 = sum(sapply(1:jcount, function(ii){
-        myv = ds1[[ii]]
-        myci = cis1.segment[ii,]
+    coverage1spike = sum(sapply(1:icount, function(ii){
+        myv = ds1spike[[ii]]
+        myci = cis1.spike[ii,]
+        truejumpsize = sum(myv*mn)
+        return(myci[1]<truejumpsize)
+    }))/icount
+
+    coverage21segment = sum(sapply(1:jcount, function(ii){
+        myv = ds21segment[[ii]]
+        myci = cis21.segment[ii,]
         truejumpsize = sum(myv*mn)
         return(myci[1]<truejumpsize)
     }))/jcount
+
+    coverage21spike = sum(sapply(1:jcount, function(ii){
+        myv = ds21spike[[ii]]
+        myci = cis21.spike[ii,]
+        truejumpsize = sum(myv*mn)
+        return(myci[1]<truejumpsize)
+    }))/jcount
+
+
+    coverages[2:5,lev2] = c(coverage1segment, coverage1spike, coverage21segment,coverage21spike)
 }
 
-
-names(twocoverages) = contrast.type
-xtable::xtable(twocoverages[["spike"]])
-xtable::xtable(twocoverages[["segment"]])
+xtable::xtable(round(coverages,3))
