@@ -2,15 +2,8 @@
 ## and /conditional/ confidence intervals, given that the right location was
 ## selected.
 
+## General plot settings
 outputdir = "../output"
-
-## Plot settings
-## load(file=file.path(outputdir,"updown-example.Rdata"))
-## oldoutputdir = "/home/justin/Dropbox/research/genlassoinf/code/output"
-## oldoutputdir = "/media/shyun/Bridge/Dropbox/research/genlassoinf/code/output"
-## load(file=file.path(oldoutputdir,"updown-example.Rdata"))
-
-
 w=5
 h=5
 xlab = "Location"
@@ -38,7 +31,7 @@ pch.spike = 15
 cex.contrast = 1.2
 
 ## Plot single example of data and contrast (bottom leftmost figure)
-pdf("output/updown-example-data-and-contrast.pdf", width=w,height=h)
+pdf(file.path(outputir,"updown-example-data-and-contrast.pdf", width=w,height=h)
 par(mar=c(4.1,3.1,3.1,1.1))
 set.seed(0)
 sigma = 1
@@ -73,33 +66,46 @@ ii=2; text(x=67,y=mean(v2.segment,na.rm=T), label = bquote(Step~.(ii)))
 title(main=expression("Data example"))
 graphics.off()
 
-## QQ plot of correct location p-values (bottom, middle and right plot)
+
+
+
+## QQ plot of correct location p-values (bottom, middle and right plot).
+lev2=2
+filename = paste0("updown-example-lev",lev2,".Rdata")
+load(file=file.path(outputdir, filename))
+p1segment = results$p1segment
+p21segment = results$p21segment
+p1spike = results$p1spike
+p21spike = results$p21spike
+icount = results$icount
+
 pspikes = list(p1spike, p21spike)
 psegments = list(p1segment, p21segment)
-pvals.list = list(pspikes, psegments)
+pvals.list = list(Spike=pspikes,
+                  Segment=psegments)
 
-w=5
-h=5
-contrast.type = c("Spike", "Segment")
-for(jj in 1:2){
-    ## pdf(paste0("output/updown-example-qqplot-",tolower(contrast.type[jj]),".pdf"), width=5,height=5)
-    pdf(file.path(outputdir, paste0("updown-example-qqplot-",tolower(contrast.type[jj]),".pdf")), width=w,height=h)
-    unif.p = seq(from=0, to=1, length=nsim)
-    for(ii in 1:2){
-        pvals = pvals.list[[jj]]
-        if(ii!=1) par(new=T)
-        a = qqplot(y=pvals[[ii]], x=unif.p, plot.it=FALSE)
-        myfun = (if(ii==1) plot else points)
+w=h=5;
+contrast.types = c("Spike", "Segment")
+for(myname in contrast.types){
+
+    pdf(file.path(outputdir, paste0("updown-example-qqplot-",
+                                    tolower(myname),".pdf")), width=w,height=h)
+    pvals = pvals.list[[myname]]
+    for(istep in 1:2){
+        if(istep!=1) par(new=T)
+        unif.p = seq(from=0, to=1, length=length(pvals[[istep]]))
+        a = qqplot(y=pvals[[istep]], x=unif.p, plot.it=FALSE)
+        myfun = (if(istep==1) plot else points)
         suppressWarnings(
-            myfun(x=a$y, y=a$x, axes=F, xlab="", ylab="", col = pcols.delta[ii], pch=pch.qq)
+            myfun(x=a$y, y=a$x, axes=F, xlab="", ylab="", col = pcols.delta[istep], pch=pch.qq)
         )
         abline(0,1,col='lightgrey')
     }
     axis(2);axis(1)
-    mtext("Observed",2,padj=-4)
-    mtext("Expected",1,padj=4)
-    title(main = bquote(.(contrast.type[jj])~test~p-values))
-    if(jj==1){
+    mtext("Observed", 2, padj=-4)
+    mtext("Expected", 1, padj=4)
+    title(main = bquote(.(myname)~test~p-values))
+    if(myname=="Spike"){
         legend("bottomright", col = pcols.delta,
                lty = 1, lwd = 5,
                legend = sapply(c(bquote(Step~1),
@@ -109,13 +115,14 @@ for(jj in 1:2){
 }
 
 
+
+## Make coverage tables
 coverages = matrix(NA,nrow=5,ncol=3)
 coverages[1,] = c(1,2,3)
 rownames(coverages) = c("delta", "coverages-1-segment" , "coverages-1-spike", "coverages-21-segment",
                         "coverages-21-spike")
-    ## contrast.type = c("spike", "segment")
 
-for(lev2 in c(1,2,3)){
+for(lev2 in c(0,1,2)){
 
     ## Load file
     filename = paste0("updown-example-lev",lev2,".Rdata")
@@ -167,4 +174,6 @@ for(lev2 in c(1,2,3)){
     coverages[2:5,lev2] = c(coverage1segment, coverage1spike, coverage21segment,coverage21spike)
 }
 
-xtable::xtable(round(coverages,3))
+## Make table
+xtable::xtable(round(coverages[c(1,3),],3))
+xtable::xtable(round(coverages[c(2,4),],3))

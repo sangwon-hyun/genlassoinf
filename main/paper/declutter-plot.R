@@ -5,110 +5,109 @@ outputdir = "../main/paper/data"
 ### Generate data for declutter example ###
 ###########################################
 
-# Form truth and noisy data (three linear segments)
-  beta1 = seq(from=1,to=10,by=1)
-  beta2 = -0.5*seq(from=11,to=20,by=1) + 15
-  beta3 = seq(from=21,to=30,by=1) - 15
-  beta0 = c(beta1,beta2,beta3)
-  n = length(beta0)
+## Form truth and noisy data (three linear segments)
+beta1 = seq(from=1,to=10,by=1)
+beta2 = -0.5*seq(from=11,to=20,by=1) + 15
+beta3 = seq(from=21,to=30,by=1) - 15
+beta0 = c(beta1,beta2,beta3)
+n = length(beta0)
 
-# Example of linear trend filtering
-  sigma = 1
-  tf.order = 1
-  consec = 2
-                                        #set.seed(30)
-  myseed = 79  # some good seeds: 53, 73, 69
-  print(myseed)
-  set.seed(myseed) #set.seed(53)
+## Example of linear trend filtering
+sigma = 1
+tf.order = 1
+consec = 2
+##set.seed(30)
+myseed = 79  # some good seeds: 53, 73, 69
+print(myseed)
+set.seed(myseed) #set.seed(53)
 
 maxsteps=10
-  y0 = beta0 + rnorm(length(beta0),0,sigma)
-  D = makeDmat(n,type="tf",order=1)
-  maxsteps = 20
-  f0 = dualpathSvd2(y0, D, maxsteps = maxsteps)
+y0 = beta0 + rnorm(length(beta0),0,sigma)
+D = makeDmat(n,type="tf",order=1)
+maxsteps = 20
+f0 = dualpathSvd2(y0, D, maxsteps = maxsteps)
 
-  # Collect Gammat at stop time
-  bic   = get.modelinfo(obj=f0,consec=consec,sigma=sigma,maxsteps=maxsteps, stoprule = 'bic')$ic
-  stop.time = which.rise(icvec=bic,consec=consec) - 1
-  stop.time = pmin(stop.time,n-consec-1)
+## Collect Gammat at stop time
+bic = get.modelinfo(obj=f0,consec=consec,sigma=sigma,maxsteps=maxsteps, stoprule = 'bic')$ic
+stop.time = which.rise(icvec=bic,consec=consec) - 1
+stop.time = pmin(stop.time,n-consec-1)
 
-  if(!(stop.time+consec < maxsteps)){
-    stop('bic rule hasnt stopped!')
-  }
+if(!(stop.time+consec < maxsteps)){stop('bic rule hasnt stopped!')}
 
-  Gobj.new.with.stoptime = getGammat.with.stoprule(obj=f0,y=y0,
-                                     condition.step = stop.time+consec,
-                                     stoprule = "bic", sigma=sigma, type='tf',
-                                     consec=consec, maxsteps=maxsteps,D=D)
-  ## G = Gobj.new.with.stoptime$Gammat
+Gobj.new.with.stoptime = getGammat.with.stoprule(obj=f0,y=y0,
+                                                 condition.step = stop.time+consec,
+                                                 stoprule = "bic", sigma=sigma,
+                                                 type='tf', consec=consec,
+                                                 maxsteps=maxsteps,D=D)
 G = Gobj.new.with.stoptime$G
-  u = Gobj.new.with.stoptime$u
+u = Gobj.new.with.stoptime$u
 
-  # Check correctness of polyhedron:
-  polyhedron.checks.out = function(y0,G,u){
+## Check correctness of polyhedron:
+polyhedron.checks.out = function(y0,G,u){
     all.nonneg = all((G%*%y0 >= u))
     if(all.nonneg){
-      return(all.nonneg)
+        return(all.nonneg)
     } else {
-      print("failed Gy >= u test")
-      return(all.nonneg)
+        print("failed Gy >= u test")
+        return(all.nonneg)
     }
-  }
-  #stopifnot(polyhedron.checks.out(y0,G.bic,u.bic))
-  if(!polyhedron.checks.out(y0,G,u)){
-      print("polyhedron is problematic")
-      next
-  }
+}
+if(!polyhedron.checks.out(y0,G,u)){
+    print("polyhedron is problematic")
+    next
+}
 
-  # Conduct tests and record pvals + stoptimes
-  states = get.states(f0$action)
+## Conduct tests and record pvals + stoptimes
+states = get.states(f0$action)
 
-  # declutter the last states
-  final.model = states[[stop.time]]
-  final.model.cluttered = sort(final.model)
-  final.model.decluttered = declutter(final.model)
+## declutter the last states
+final.model = states[[stop.time]]
+final.model.cluttered = sort(final.model)
+final.model.decluttered = declutter(final.model)
 
-  # test only the decluttered states, with /their/ adjusted contrasts
-  final.models = list(final.model.cluttered,final.model.decluttered)
+## Test only the decluttered states, with /their/ adjusted contrasts
+final.models = list(final.model.cluttered,final.model.decluttered)
 
-  Vs = Ps = Cs = list()
-  for(kk in 1:2){
-    final.model = final.models[[kk]]
+Vs = Ps = Cs = list()
+for(imodel in 1:2){
+    final.model = final.models[[imodel]]
     contrasts = list()
     pvals = coords = c()
     if(stop.time > 0){
-      for(ii in 1:length(final.model)){
-        this.sign = f0$pathobj$s[f0$pathobj$B == final.model[ii]]
-        if(length(this.sign)==0){
-          f1 = dualpathSvd2(y0, D, maxsteps = stop.time-1)
-          this.sign = f1$pathobj$s[f1$pathobj$B == final.model[ii]]
+        for(ii in 1:length(final.model)){
+          this.sign = f0$pathobj$s[f0$pathobj$B == final.model[ii]]
+
+          if(length(this.sign)==0){
+            f1 = dualpathSvd2(y0, D, maxsteps = stop.time-1)
+            this.sign = f1$pathobj$s[f1$pathobj$B == final.model[ii]]
+          }
+
+          v =     make.v.tf.fp(test.knot = final.model[ii],
+                                adj.knot  = final.model,
+                                test.knot.sign = this.sign,#f1$adj.knot,
+                                D = D)
+          contrasts[[ii]] = v
+
+          mycoord = final.model[ii]
+
+          pvals[ii] = mypval
+          coords[ii] = mycoord
+
+          ## ## Name things sensibly
+          ## signed.cp = f0$pathobj$s * f0$pathobj$B
+          ## names(contrasts) = f0$pathobj$s
         }
-
-
-        v =     make.v.tf.fp(test.knot = final.model[ii],
-                              adj.knot  = final.model,
-                              test.knot.sign = this.sign,#f1$adj.knot,
-                              D = D)
-        contrasts[[ii]] = v
-
-        mycoord = final.model[ii]
-        ## mypval  = pval.fl1d(y0,G,dik=v,sigma,u=u)
-        mypval  = poly.pval(y=y0,G=G,v=v,u=u,sigma=sigma)$pv
-        pvals[ii] = mypval
-        coords[ii] = mycoord
-
-
-      }
     }
 
-    Vs[[kk]] = contrasts
-    Ps[[kk]] = pvals
-    Cs[[kk]] = coords
-    if(kk==1)print("before")
-    if(kk==2)print("after")
+    Vs[[imodel]] = contrasts
+    Ps[[imodel]] = pvals
+    Cs[[imodel]] = coords
+
+    if(imodel==1)print("before")
+    if(imodel==2)print("after")
     names(pvals) = final.model
     print(pvals)
-  }
+}
 
 ####################################
 ## Plot two decluttering examples ##
@@ -127,11 +126,9 @@ lcol.est = 'blue'
 lwd.est = 2
 lwd.signal=2
 pcol.dat = "grey50"
-## pcols.contrast = RColorBrewer::brewer.pal(n=3,name="Set2")
 pcols.contrast.tf = RColorBrewer::brewer.pal(n=3,name="Set2")
 pcols.contrast.tf[2] = "grey75"
-## lwd.knots = c(1,1)
-## pchs.contrast.tf = c(15,17)## This was before the first EJS revision
+pcols.contrast.tf = pcols.contrast.tf[c(2,1,3)]
 pchs.contrast.tf = c(17,15)
 ylim=c(-5,20)
 ylab = ""
@@ -142,46 +139,44 @@ filenames = c("tf-declutter-firstknot.pdf","tf-declutter-secondknot.pdf")
 w=h= 5
 mar=4*c(1,.5,.15,.5)
 for(ii in 1:2){
-for(kk in 2:1){
-    if( (kk==1 & ii ==1) | (kk==1 &  ii==2) | (kk==2 &  ii==1) | (kk==2 &  ii==2)  ){
-    v = (Vs[[kk]])[[ii]]
-    pval = (Ps[[kk]])[ii]
-    final.model = final.models[[kk]]
 
-    if(kk==2) {
-        pdf(file=file.path(outputdir, filenames[ii]),width=w,height=h)
-        par(mar=mar)
-        plot(NA, ylim = ylim, xlim=xlim, xlab=xlab,ylab=ylab,axes=F)
-        axis(1);axis(2)
-    }
-    points(y0,pch=pch.dat, col = pcol.dat)
-    abline(h=0,col=lcol.hline)
-#      lines(beta0,col=lcol.signal, lwd=lwd.signal)
-    points(v*7-kk*.3,col=pcols.contrast.tf[kk],pch=pchs.contrast.tf[kk]);
-    abline(v=final.model[ii]+.5+.5, lwd=lwd.test.knot, col = lcol.test.knot,lty=lty.knots);
-    abline(v=final.model+.5+.5, lwd=lwd.knot, col = lcol.final.model.knots,lty=lty.knots)
-    lines(f0$beta[,stop.time+1], col = lcol.est, lwd = lwd.est)
-    ## text(x=final.model[ii], y = -5-1.5*kk+1, label = paste(  (if(kk==1) "Original" else "Post-processed"),"p-value: ",signif(pval,3)))
+    ## For cluttered/decluttered plots
+    for(imodel in 2:1){
+        ## We only care about plotting these combinations of things
+        if( (imodel==1 & ii ==1) | (imodel==1 &  ii==2) |
+            (imodel==2 &  ii==1) | (imodel==2 &  ii==2)  ){
 
-        ## if(kk==2 & ii == 1){#if(kk==2 & ii == 1){
+            v = (Vs[[imodel]])[[ii]]
+            pval = (Ps[[imodel]])[ii]
+            final.model = final.models[[imodel]]
+
+            ## Initialize plots
+            if(imodel==2) {
+                pdf(file=file.path(outputdir, filenames[ii]),width=w,height=h)
+                par(mar=mar)
+                plot(NA, ylim = ylim, xlim=xlim, xlab=xlab,ylab=ylab,axes=F)
+                axis(1);axis(2)
+            }
+
+            ## Make plots
+            points(y0,pch=pch.dat, col = pcol.dat)
+            abline(h=0,col=lcol.hline)
+            points(v*7-imodel*.3,col=pcols.contrast.tf[imodel],pch=pchs.contrast.tf[imodel]);
+            abline(v=final.model[ii]+.5+.5, lwd=lwd.test.knot, col = lcol.test.knot,lty=lty.knots);
+            abline(v=final.model+.5+.5, lwd=lwd.knot, col = lcol.final.model.knots,lty=lty.knots)
+            lines(f0$beta[,stop.time+1], col = lcol.est, lwd = lwd.est)
+
+            ## Add legend
             legend("topleft", inset = 0,
-                            lty = c(NA, lty.signal, lty.est, lty.knots[1],NA,NA)[-2],
-                            lwd = c(NA, lwd.signal, lwd.est, lwd.knots[1],NA,NA)[-2],
-                            pch = c(pch.dat, NA,NA,NA, pchs.contrast.tf, pchs.contrast.tf)[-2],
-                            col = c(pcol.dat, lcol.signal,lcol.est,lcols.knot[1],pcols.contrast.tf)[-2],
-                            legend=c("Data","Signal","Estimate","Knot","Original contrast", "Decluttered contrast")[-2],bg='white')
-        ## }
+                   lty = c(NA, lty.signal, lty.est, lty.knots[1],NA,NA)[-2],
+                   lwd = c(NA, lwd.signal, lwd.est, lwd.knots[1],NA,NA)[-2],
+                   pch = c(pch.dat, NA,NA,NA, pchs.contrast.tf, pchs.contrast.tf)[-2],
+                   col = c(pcol.dat, lcol.signal,lcol.est,lcols.knot[1],pcols.contrast.tf)[-2],
+                   legend=c("Data","Signal","Estimate","Knot","Original contrast", "Decluttered contrast")[-2],bg='white')
         }
     }
-
-    ## if(ii==2){
-    ##     kk=2
-    ##     v = (Vs[[kk]])[[ii]]
-    ##     pval = (Ps[[kk]])[ii]
-    ##     points(v*7-kk*.3,col=pcols.contrast.tf[kk],pch=pchs.contrast.tf[kk]);
-    ## }
     graphics.off()
-    }
+}
 
 
 #######################################################

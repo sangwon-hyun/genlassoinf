@@ -7,7 +7,7 @@ outputdir = "../output"
 lev1= 0
 lev2 = 2
 sigma = 1
-maxcount = 1000
+maxcount = 500 ## 10000
 alpha = 0.05
 numsteps = 2
 isim = 0
@@ -15,7 +15,7 @@ isim = 0
 ## icount and jcount are for counting the number of first&second step
 ## conditional cases encountered
 icount = jcount = 0
-p1spike = p1segment = p21spike = p21segment = rep(NA, maxcount)
+p1spike = p1segment = p21spike = p21segment = p21segment.scaled=rep(NA, maxcount)
 ds1segment = ds1spike = ds21segment = ds21spike = list()
 cis1.segment = cis21.segment = cis1.spike = cis21.spike = matrix(NA,nrow=maxcount,ncol=2)
 cat("Simulations running with lev2=", lev2, fill=TRUE)
@@ -66,8 +66,9 @@ while(icount < maxcount & jcount < maxcount){
         ## Form contrasts
         G = f2$Gobj.naive$G
         u = f2$Gobj.naive$u
-        d21spike <- getdvec(obj=f2,y=y0,k=1,type="spike")
-        d21segment <- getdvec(obj=f2,y=y0,k=1,klater=2,type="segment")
+
+        d21spike <- getdvec(obj=f2,y=y0,k=1,type="spike",scale="segmentmean")
+        d21segment <- getdvec(obj=f2,y=y0,k=1,klater=2,type="segment",scale="segmentmean")
 
         ## Form p-values & one-sided confidence intervals
         p21spike[icount] <- poly.pval(y=y0, G=G, v=d21spike, u=u, sigma=sigma)$pv
@@ -93,17 +94,22 @@ results = list(cis1.segment = cis1.segment[!is.na(p1segment),],
                cis21.segment = cis21.segment[!is.na(p21segment),],
                cis1.spike = cis1.spike[!is.na(p1segment),],
                cis21.spike = cis21.spike[!is.na(p21segment),],
-                  p1spike = p1spike[!is.na(p1spike)],
-                  p21spike = p21spike[!is.na(p21spike)],
-                  p1segment = p1segment[!is.na(p1segment)],
-                  p21segment = p1segment[!is.na(p21segment)], icount = icount-1,
-                  jcount = jcount-1,
-                  propcorrect.step1 = icount/isim,
-                  propcorrect.step2 = jcount/isim,
-                  ds1spike=ds1spike[!is.na(p1spike)],
-                  ds1segment=ds1segment[!is.na(p1spike)],
-                  ds21spike=ds21spike[!is.na(p21spike)],
-                  ds21segment=ds21segment[!is.na(p21segment)])
+               p1spike = p1spike[!is.na(p1spike)],
+               p21spike = p21spike[!is.na(p21spike)],
+               p1segment = p1segment[!is.na(p1segment)],
+               p21segment = p21segment[!is.na(p21segment)], icount = icount-1,
+               jcount = jcount-1,
+               propcorrect.step1 = icount/isim,
+               propcorrect.step2 = jcount/isim,
+               ds1spike=ds1spike[!is.na(p1spike)],
+               ds1segment=ds1segment[!is.na(p1spike)],
+               ds21spike=ds21spike[!is.na(p21spike)],
+               ds21segment=ds21segment[!is.na(p21segment)],
+               lev1=lev1,
+               sigma=sigma,
+               maxcount=maxcount,
+               alpha=alpha)
+
 print(results$icount)
 
 filename = paste0("updown-example-lev",lev2,".Rdata")

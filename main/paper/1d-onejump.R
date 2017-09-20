@@ -4,7 +4,7 @@
 outputdir = "../output"
 
 ## Generate p-values and simulation quantities
-nsim = 100
+nsim = 1000
 n = 60
 sigma = 1
 lev1= 0
@@ -131,3 +131,25 @@ twocoverages = lapply(1:2, function(jj){
 names(twocoverages) = contrast.type
 xtable::xtable(twocoverages[["spike"]])
 xtable::xtable(twocoverages[["segment"]])
+
+
+
+
+## Get average (actually, median) lower bounds of one-sided confidence intervals
+twolowerbounds = lapply(1:2, function(jj){
+    mydat = dat[[contrast.type[jj]]]
+    av.lowers = sapply(1:ngrain, function(igrain){
+        ci.list = (dat[[jj]])$cis.correctlist[[igrain]]
+        all.lowers = sapply(ci.list, function(myci){
+            myci[1]
+        })
+        mdn = median(all.lowers)
+        ## avg = median(all.lowers)
+        return(mdn)
+    })
+    mdn.lowers = rbind(lev2list,round(av.lowers,3))
+    rownames(mdn.lowers) = c("delta", "mdn.lowers")
+    return(mdn.lowers)
+})
+
+
