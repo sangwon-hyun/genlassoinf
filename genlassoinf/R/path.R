@@ -32,6 +32,7 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
     stopifnot(maxsteps>=1)
 
   nk = 0
+    nkstep = 0
   ss = list() # list of ss
 
   # If we are starting a new path
@@ -87,7 +88,8 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
     newrows = rbind(M + tDinv[-ihit,],
                     M - tDinv[-ihit,])
     if(nrow(newrows)>=1) G[nk[length(nk)]+(1:nrow(newrows)),] = newrows
-            nk = c(nk, nk[length(nk)]+nrow(newrows))
+    nk = c(nk, nk[length(nk)]+nrow(newrows))
+    nkstep[k] =  nk[length(nk)]
 
     # Other things to keep track of, but not return
     r = 1                      # Size of boundary set
@@ -399,12 +401,16 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
           cat(sprintf("\n%i. lambda=%.3f, deleting coordinate %i, |B|=%i...",
                       k,leave,I[m-r],r))
         }
+          print('nk is')
+          print(nk)
 
       }
 
+        nkstep[k] =  nk[length(nk)]
+
       # Step counter + other stuff
       k = k+1
-      # resetting tDinv
+      # resetting tDiv
       #tDinv = t(as.matrix(rep(NA,length(tDinv)))[,-1,drop=F])
     }
   }, error = function(err) {
@@ -454,7 +460,7 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
 
     mypath = list(lambda=lams,beta=beta,fit=beta,hit=h,df=df,y=y,ss=ss,u=u,
                   states=states, completepath=completepath,bls=y,
-                  pathobjs=pathobjs, nk = nk, action=action, D = D, cp = cp,
+                  pathobjs=pathobjs, nk = nk, nkstep = nkstep, action=action, D = D, cp = cp,
                   cp.sign = cp.sign,
                   Gobj.naive=list(G=G[1:(nk[length(nk)]),],u=rep(0,nk[length(nk)])),
                   Gobj.stoprule = NULL,
