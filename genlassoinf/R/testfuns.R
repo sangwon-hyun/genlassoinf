@@ -228,7 +228,8 @@ alternjump.y <- function(returnbeta = F, lev1 = 1, lev2 = 5,  n = 60,  sigma = .
 
 ##' Function to collect pvals, for Figure 8 and Appendix figure 8 and 15
 onejump.naive.sim <- function(testtype = c("spike","segment"), nsim, sigma, lev1,
-                         lev2list, numsteps,verbose=T, alpha=.05, loctype = c("exact", "oneoff")){
+                              lev2list, numsteps, verbose=T, alpha=.05, loctype=c("exact", "oneoff"),
+                              fac=30, gridsize=1000){
 
     testtype <- match.arg(testtype)
     loctype <- match.arg(loctype)
@@ -253,14 +254,14 @@ onejump.naive.sim <- function(testtype = c("spike","segment"), nsim, sigma, lev1
                 path   = dualpathSvd2(y,dual1d_Dmat(length(y)),maxsteps=numsteps,approx=T)
                 G = path$Gobj.naive$G
                 u = path$Gobj.naive$u
-                d      = getdvec(obj=path, y=y, k=1, type=testtype)
+                d      = getdvec(obj=path, y=y, k=1, type=testtype, scaletype="segmentmean")
                 if(path$pathobj$B[1] == n/2){
                     jj = jj+1
                     pvals.correct[jj] = poly.pval(y=y,G=G,v=d,u=u,sigma=sigma)$pv
                     cis.correct[[jj]] = confidence_interval(y, list(gamma=G,u=u), d,
                                                             sigma=1, alpha=alpha,
                                                             alternative="one.sided",
-                                                            fac=10)
+                                                            fac=fac, gridsize=gridsize)
                     ds[[jj]] = d
                     if(verbose) cat("\r", jj, "of", nsim)
                 }
@@ -296,7 +297,7 @@ onejump.naive.sim <- function(testtype = c("spike","segment"), nsim, sigma, lev1
             path   = dualpathSvd2(y0,dual1d_Dmat(n),maxsteps=numsteps,approx=T)
             G = path$Gobj.naive$G
             u = path$Gobj.naive$u
-            d      = getdvec(obj=path, y=y0, k=1, type=testtype)
+            d      = getdvec(obj=path, y=y0, k=1, type=testtype, scaletype="segmentmean")
             if(abs(path$pathobj$B[1] - n/2) == 1){
                 pvals.oneoff[jj] = poly.pval(y=y0,G=G,v=d,u=u,sigma=sigma)$pv
                 jj = jj+1
@@ -325,3 +326,5 @@ onejump.naive.sim <- function(testtype = c("spike","segment"), nsim, sigma, lev1
 
 onejump <- function(lev,n){c(rep(0,n/2),rep(lev,n/2))}
 twojump <- function(lev,n){c(rep(0,n/3),rep(lev,n/3), rep(0,n/3))}
+
+
