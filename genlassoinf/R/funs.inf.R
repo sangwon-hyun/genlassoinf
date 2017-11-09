@@ -437,6 +437,7 @@ test? I doubt it, since you currently have a negative sum(contrast*y)..")
 ##' Makes a |polyhedra| class object, which is just a list that contains two
 ##' elements names |gamma| and |u|, which are the matrix and vector
 ##' characterizing the polyhedron
+##' @export
 polyhedra_from_genlasso <- function(obj, numSteps){
         return(structure(list(gamma=obj$Gobj.naive$G[1:obj$nkstep[numSteps],],
                               u = obj$Gobj.naive$u[1:obj$

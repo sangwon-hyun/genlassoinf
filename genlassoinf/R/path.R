@@ -401,9 +401,6 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
           cat(sprintf("\n%i. lambda=%.3f, deleting coordinate %i, |B|=%i...",
                       k,leave,I[m-r],r))
         }
-          print('nk is')
-          print(nk)
-
       }
 
         nkstep[k] =  nk[length(nk)]
