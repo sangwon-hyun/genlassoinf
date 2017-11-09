@@ -11,7 +11,6 @@ path <- function(...) {
 is.path <- function(someobj){ inherits(someobj, "path") }
 
 ##' Form generic
-##' @export ## Actually not sure if this export is right.
 print <- function(x,...) UseMethod("print")
 
 ##' Plotting function for "path" class
