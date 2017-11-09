@@ -328,3 +328,60 @@ onejump <- function(lev,n){c(rep(0,n/2),rep(lev,n/2))}
 twojump <- function(lev,n){c(rep(0,n/3),rep(lev,n/3), rep(0,n/3))}
 
 
+
+
+
+##' Function to aggregate successes and hits in order to calculate condit
+##' powers, for stopping time simulations
+getpowers.from.chunks <- function(n, verdict.obj.name, ngrain= 20,
+                                  nsim = 100000, nchunks = 100,
+                                  file.id = "bic-onejump-segmentsize-allbics"){
+
+    # Helper functions
+    getpow = function(verdicts,ii,loc){  return(sum(verdicts[ii,,loc],na.rm=T)/pmax(1,sum(!is.na(verdicts[ii,,loc]))))   }
+    getpow.numer = function(verdicts){  return( sum(verdicts,na.rm=T))   }
+    getpow.denom = function(verdicts){  return( pmax(1,sum(!is.na(verdicts))))   }
+
+    # Powers
+    powers = array(NA, c(ngrain,n))
+    powers.numer = powers.denom = array(0,c(ngrain,n))
+    powers.prox.numer = powers.prox.denom = powers.prox = rep(0,ngrain)
+
+    loc = n/2
+    proxlocs = (loc-log(n)):(loc+log(n))
+
+    # extract numer and denom and sum over chunks
+    for(chunk.i in 1:nchunks){
+    cat('\r', chunk.i, "out of", nchunks)
+    load(file=file.path(codedir, paste0("maxoutput/",file.id , n/2, "-chunk",chunk.i,".Rdata")))
+#      verdict.obj.name = "verdicts.bic2"
+      verdicts = eval(parse(text=verdict.obj.name))
+      for(ii in 1:ngrain){
+        # Exact powers
+        for(loc in 1:n){
+          powers.numer[ii,loc]  = powers.numer[ii,loc] + getpow.numer(verdicts[ii,,loc])
+          powers.denom[ii,loc]  = powers.denom[ii,loc] + getpow.denom(verdicts[ii,,loc])
+        }
+        # Approximate powers at true break coordinate
+        prox.verdicts = apply(verdicts[ii,,proxlocs], 1,
+                            function(this.sim.verdicts){
+                             (if(!all(is.na(this.sim.verdicts))) any(this.sim.verdicts,na.rm=T) else NA)})
+        powers.prox.numer[ii]  = powers.prox.numer[ii] + getpow.numer(prox.verdicts)
+        powers.prox.denom[ii]  = powers.prox.denom[ii] + getpow.denom(prox.verdicts)
+      }
+
+      powers.prox.numer.bic = powers.prox.numer
+      powers.prox.denom.bic = powers.prox.denom
+    }
+    cat('\n')
+
+    # calculate condit power at each locaiton from extracted/summed numer and denom
+    for(ii in 1:ngrain){
+      powers[ii,]  = powers.numer[ii,]/powers.denom[ii,]
+      powers.prox[ii] = powers.prox.numer[ii]/powers.prox.denom[ii]
+    }
+    rownames(powers) = names(powers.prox) = sigmalist
+    colnames(powers) = 1:n
+
+    return(list(powers=powers, powers.numer=powers.numer, powers.denom=powers.denom, powers.prox = powers.prox))
+}
