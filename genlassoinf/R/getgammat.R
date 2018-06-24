@@ -1,6 +1,6 @@
 ##' Gets k'th Gammat matrix from path object \code{obj}. Note! If you're being
-##' naive, then do whatever you want with condition.step.  Note, if you're using
-##' stop times, condition.step should be the (stoptime + 2)
+##' naive, then do whatever you want with condition.step.  If you're using IC
+##' stopping, condition.step should be the (stoptime + 2)
 ##' @export
 getGammat.naive = function(obj, y, condition.step=NULL){
 
@@ -12,7 +12,7 @@ getGammat.naive = function(obj, y, condition.step=NULL){
     }
 
     ## Extract naive Gamma matrix
-    my.Gammat = obj$Gobj.naive$G[1:obj$nk[condition.step+1],] ## nk starts with a 0 element.
+    my.Gammat = obj$Gobj.naive$G[1:obj$nkstep[condition.step],]
     my.u = rep(0,nrow(my.Gammat))
     return(list(G = my.Gammat, u = my.u, condition.step=condition.step))
 }

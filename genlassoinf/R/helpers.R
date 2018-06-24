@@ -9,7 +9,7 @@ checkrows <- function(A) {
 
 ##' Helper function to obtain the effective design X matrix, by breaking X at
 ##' the fused lasso regression breakpoints.
-get.augmented.X = function(X,breaks,return.groups = F,TT,J,group.inds){
+get.augmented.X <- function(X,breaks,return.groups = F,TT,J,group.inds){
     find.which.group = function(hit) which(sapply(1:J, function(jj) hit %in% group.inds[[jj]]))
     which.group.breaks = sapply(breaks, find.which.group)
     breaks.by.group = list()
@@ -42,7 +42,7 @@ get.augmented.X = function(X,breaks,return.groups = F,TT,J,group.inds){
 ##' Helper function to take all neighboring-to-each-other clusters,
 ##' And declutter them by removing all but (rounded up) centroids
 ##' @export
-declutter = function(coords, how.close = 1, sort=T, indexonly = F){#closeby.same.direction.are.disallowed=F
+declutter <- function(coords, how.close = 1, sort=T, indexonly = F){#closeby.same.direction.are.disallowed=F
 
     ## n
     unsorted.coords=coords
@@ -94,7 +94,7 @@ declutter = function(coords, how.close = 1, sort=T, indexonly = F){#closeby.same
 
 
 ##' Gets k'th Vup or Vlo for user-input y, G, dik and sigma
-getVs = function(y, G, dik, sigma, u = rep(0, nrow(G))){
+getVs <- function(y, G, dik, sigma, u = rep(0, nrow(G))){
 
   rho   <- G %*% dik / sum(dik^2)
   V <- (u - (G%*%y) + rho %*% (dik %*% y) ) / rho
@@ -111,7 +111,7 @@ getVs = function(y, G, dik, sigma, u = rep(0, nrow(G))){
 # Returns a sequence of integers from a to b if a <= b,
 # otherwise nothing. You have no idea how important this
 # function is...
-Seq = function(a,b) {
+Seq <- function(a,b) {
   if (a<=b) return(a:b)
   else return(integer(0))
 }
@@ -123,18 +123,18 @@ Sign <- function(x) {
 
 
 ## A bunch of helpers
-getDtfSparse = function(n,ord) {
+getDtfSparse <- function(n,ord) {
   D = bandSparse(n, m=n, c(0,1), diagonals=list(rep(-1,n),rep(1,n-1)))
   D0 = D
   for (i in Seq(1,ord)) D = D0 %*% D
   return(D[Seq(1,n-ord-1),])
 }
 
-getDtf = function(n, ord) {
+getDtf <- function(n, ord) {
   return(as.matrix(fSparse(n,ord)))
 }
 
-getT = function(n,k,x=1:n) {
+getT <- function(n,k,x=1:n) {
   T = x
   if (k==0) T = T[-1]
   else if (k%%2==1) T = T[-c(1:((k+1)/2),(n-(k-1)/2):n)]
@@ -142,7 +142,7 @@ getT = function(n,k,x=1:n) {
   return(T)
 }
 
-getG = function(n,k,x=1:n) {
+getG <- function(n,k,x=1:n) {
   T = getT(n,k,x)
   G = matrix(0,n,n)
   G[,1] = rep(1,n)
@@ -160,7 +160,7 @@ getG = function(n,k,x=1:n) {
 
 # Correction because getH() for trendfiltering above k>0 is actually wrong;
 # This is from Ryan's trendfilter paper Lemma 2
-getH.trendfilter = function(n,k,x=1:n){
+getH.trendfilter <- function(n,k,x=1:n){
 
   # get k'th order cumulative sum
   s = rep(1,n)
@@ -188,7 +188,7 @@ getH.trendfilter = function(n,k,x=1:n){
 }
 
 
-getHslow = function(n,k) {
+getHslow <- function(n,k) {
   D = matrix(0,n,n)
   D[1,1] = 1
   for (i in 2:(k+1)) D[i,] = getDtf(n,i-2)[1,]
@@ -196,12 +196,12 @@ getHslow = function(n,k) {
   return(round(solve(D),3))
 }
 
-getHscaled = function(n,k,x=1:n) {
+getHscaled <- function(n,k,x=1:n) {
   H = getH(n,k,x)
   return(H*factorial(k))
 }
 
-compare = function(a,aa,lam) {
+compare <- function(a,aa,lam) {
   f = predict(a,lambda=lam)$fit
   if ("trendfilter" %in% class(aa)) ff = coef(aa,lambda=lam)$beta
   else ff = predict(aa,lambda=lam)$fit
@@ -214,7 +214,7 @@ compare = function(a,aa,lam) {
   return(max(abs(f-ff)))
 }
 
-kspline = function(k=0, n=100, seed=0, numknots=5, knots=NULL, weights=NULL) {
+kspline <- function(k=0, n=100, seed=0, numknots=5, knots=NULL, weights=NULL) {
   if (is.null(knots)) knots=sample(1:n,numknots)
   else numknots = length(knots)
 
@@ -237,7 +237,7 @@ kspline = function(k=0, n=100, seed=0, numknots=5, knots=NULL, weights=NULL) {
   return(list(beta=beta,y=y))
 }
 
-pieconst = function(n=100, seed=0, numknots=5) {
+pieconst <- function(n=100, seed=0, numknots=5) {
   set.seed(seed)
 
   d = floor(n/numknots)
@@ -249,7 +249,7 @@ pieconst = function(n=100, seed=0, numknots=5) {
   return(list(beta=beta,y=y))
 }
 
-pielin = function(n=100, seed=0) {
+pielin <- function(n=100, seed=0) {
   set.seed(seed)
   n = 100
   knots = matrix(0,6,2)
@@ -269,7 +269,7 @@ pielin = function(n=100, seed=0) {
   return(list(beta=beta,y=y))
 }
 
-pielinx = function(x) {
+pielinx <- function(x) {
   knots = matrix(0,6,2)
   knots[,1] = c(0,20,45,60,85,100)/100
   knots[,2] = c(1,2,6,8,5,6)
@@ -284,7 +284,7 @@ pielinx = function(x) {
 }
 
 
-piequad = function(n=100, seed=0) {
+piequad <- function(n=100, seed=0) {
   set.seed(seed)
   knots = matrix(0,4,2)
   knots[,1] = c(1,33,60,100)
@@ -313,7 +313,7 @@ piequad = function(n=100, seed=0) {
   return(list(beta=beta,y=y))
 }
 
-piecub = function(n=100, seed=0) {
+piecub <- function(n=100, seed=0) {
   set.seed(seed)
   n=100
   beta=rep(0,100)
@@ -329,7 +329,7 @@ piecub = function(n=100, seed=0) {
   return(list(beta=beta,y=y))
 }
 
-piecubx = function(x) {
+piecubx <- function(x) {
   x = x*100
   if (x<=40) return((x-20)^3)
   if (x<=50) return(-60*(x-50)^2 + 60*100+20^3)
@@ -337,7 +337,7 @@ piecubx = function(x) {
   if (x<=100) return(-1/6*(x-110)^3 + -1/6*40^3 + 6000)
 }
 
-smoothwiggly.fun = function(x) {
+smoothwiggly.fun <- function(x) {
   f = function(a,b,c,x) return(a*(x-b)^2+c)
   fp = function(a,b,c,x) return(2*a*(x-b))
 
@@ -366,13 +366,13 @@ smoothwiggly.fun = function(x) {
   return(f(a,b,c,x))
 }
 
-smoothwiggly = function(n=100, x=1:n/n) {
+smoothwiggly <- function(n=100, x=1:n/n) {
   u = rep(0,n)
   for (i in 1:n) u[i]=smoothwiggly.fun(x[i])
   return(u)
 }
 
-maxlam2 = function(y,k) {
+maxlam2 <- function(y,k) {
   n = length(y)
   D = getDtfSparse(n,k)
   x = qr(t(D))
@@ -388,7 +388,7 @@ maxlam2 = function(y,k) {
 ##   return(list(u=u,maxlam=max(abs(u))))
 ## }
 
-backsolveSparse = function(QR, b) {
+backsolveSparse <- function(QR, b) {
   #R = qrR(QR)
   #x = solve(R, qr.qty(QR,b)[Seq(1,nrow(R))])
   #return(as.numeric(x))
@@ -398,25 +398,25 @@ backsolveSparse = function(QR, b) {
   else return(x[Order(QR@q+1)])
 }
 
-Order = function(x) {
+Order <- function(x) {
   n = length(x)
   o = numeric(n)
   o[x] = Seq(1,n)
   return(o)
 }
 
-crit = function(y,k,lambda,beta) {
+crit <- function(y,k,lambda,beta) {
   return(0.5*sum((y-beta)^2) + lambda*sum(abs(diff(beta,differences=k+1))))
 }
 
-bx = function(x,lam) {
+bx <- function(x,lam) {
   y = x
   y[x>lam] = lam
   y[x< -lam] = -lam
   return(y)
 }
 
-st = function(x,s,r) {
+st <- function(x,s,r) {
   z = rep(0,length(x))
   z[x>s] = x[x>s]-s
   z[x< -s] = x[x< -s]+s
@@ -436,7 +436,7 @@ checkcols <- function(A) {
 }
 
 ##' Helper functions for fl1d (by Justin)
-LS = function(y, X, out = c("fitted_y", "fitted_coeff")){
+LS <- function(y, X, out = c("fitted_y", "fitted_coeff")){
   ## n-length vector y
   ## n by p matrix X  (n >= p)
   if( out == "fitted_y" ){
@@ -451,7 +451,7 @@ LS = function(y, X, out = c("fitted_y", "fitted_coeff")){
 }
 
 
-dual1d_Dmat = function(m){
+dual1d_Dmat <- function(m){
   D = matrix(0, nrow = m-1, ncol = m)
   for(ii in 1:(m-1)){
     D[ii,ii] = -1
@@ -461,7 +461,7 @@ dual1d_Dmat = function(m){
 }
 
 # Makes a D matrix for a matrix that is stacked as rows
-graph2D_Dmat = function(m){
+graph2D_Dmat <- function(m){
 
     m0 = sqrt(m)
     stopifnot( m0 == round(m0) )
@@ -485,7 +485,7 @@ graph2D_Dmat = function(m){
 
 ##' general function that makes various D matrices
 ##' @export
-makeDmat = function(m, type = c("tf","2d","graph"), order=0){
+makeDmat <- function(m, type = c("tf","2d","graph"), order=0){
 
     type = match.arg(type)
     D = NA
@@ -506,7 +506,7 @@ makeDmat = function(m, type = c("tf","2d","graph"), order=0){
 }
 
 # helper function, to make a vector input into a row matrix
-asrowmat = function(obj){
+asrowmat <- function(obj){
   objmat = as.matrix(obj)
   if(ncol(objmat)==1 & ncol(objmat) < nrow(objmat)){
     objmat = t(objmat)
@@ -514,8 +514,10 @@ asrowmat = function(obj){
   return(objmat)
 }
 
+
+
 # and likewise, column matrix
-ascolmat = function(obj){
+ascolmat <- function(obj){
   objmat = as.matrix(obj)
   if(nrow(objmat)==1 & nrow(objmat) < ncol(objmat)){
     objmat = t(objmat)
@@ -526,7 +528,7 @@ ascolmat = function(obj){
 
 
 
-mod = function(num,mod){
+mod <- function(num,mod){
   c = num %% mod
   if(c == 0){
     return  (mod)
@@ -548,14 +550,14 @@ svdsolve <- function(A,b, rtol=1e-7) {
 
 
 #' creates vector of length n whose j'th element is 1, otherwise 0. Not currently in use.
-evec = function(n,j){
+evec <- function(n,j){
   v <- rep(0,n)
   v[j] <- 1
   return(v)
 }
 
 # Transform the fused lasso problem into a lasso problem, using (11) of Genlasso path paper
-getlars = function(y,k,numsteps){
+getlars <- function(y,k,numsteps){
   n = length(y)
   H = getH(n,k)
   H1 = H[,1:(k+1)]
@@ -574,7 +576,7 @@ getlars = function(y,k,numsteps){
 
 
 #' produces primal solution from dual solution on a point in path
-getprimal_from_dual = function(u, y, type = "fl1d"){
+getprimal_from_dual <- function(u, y, type = "fl1d"){
   if(type == "fl1d"){
       D = dual1d_Dmat(length(y))
   } else {
@@ -585,7 +587,7 @@ getprimal_from_dual = function(u, y, type = "fl1d"){
 
 #' produces primal matrix from dual solution matrix
 #' Example usage: getprimal(umat = fl1d(..)$u)
-getprimalmat = function(umat, y, type="fl1d"){
+getprimalmat <- function(umat, y, type="fl1d"){
   if(type == "fl1d"){
     D = dual1d_Dmat(length(y))
   } else {
@@ -596,7 +598,7 @@ getprimalmat = function(umat, y, type="fl1d"){
 }
 
 # Make residuals from the differences in the null space projection
-makeresid = function(D,prevhits,thishit,n){
+makeresid <- function(D,prevhits,thishit,n){
 
       proj = function(mymat){ return(mymat %*% solve(t(mymat)%*%mymat, t(mymat)))}
 
@@ -618,7 +620,7 @@ makeresid = function(D,prevhits,thishit,n){
 
 # Make residuals from projection, from equivalent regression problem
 # prevhits and thishit should have no overlap
-makeresid.tf = function(prevhits, thishit,n, k=0){
+makeresid.tf <- function(prevhits, thishit,n, k=0){
 
     # Get old model (H1) and new variable being added (H2)
     H = getH(n,k)
@@ -641,7 +643,7 @@ makeresid.tf = function(prevhits, thishit,n, k=0){
 # For example:
 #new.membership = c(1,1,0,0,0,0)
 #old.memberships = cbind(c(1,1,1,1,1,1),c(1,1,1,1,0,0))
-makeresid.graph = function(new.membership, old.memberships, n){
+makeresid.graph <- function(new.membership, old.memberships, n){
 
   # make sure to check if new.index is a subset of old.index
   stopifnot(all(as.numeric(old.memberships - new.membership) %in% c(0,1)))
@@ -730,7 +732,7 @@ see.big.objs <- function(szcut=10, which.envir = c("global", "local"), verbose=F
 ##' Function to take mypath$action from a path object and returns a list of the
 ##' states after each step in algorithm, starting with NA as the first state.
 ##' @export
-get.states = function(action.obj, path.obj=NULL){
+get.states <- function(action.obj, path.obj=NULL){
 
     ## Extract action from pathobj
     if(!is.null(path.obj)){
@@ -769,7 +771,7 @@ get.states = function(action.obj, path.obj=NULL){
 
 ##' Helper function to obtain the effective design X matrix, by breaking X at
 ##' the fused lasso regression breakpoints.
-get.augmented.X = function(X,breaks,return.groups = F,TT,J,group.inds){
+get.augmented.X <- function(X,breaks,return.groups = F,TT,J,group.inds){
     find.which.group = function(hit) which(sapply(1:J, function(jj) hit %in% group.inds[[jj]]))
     which.group.breaks = sapply(breaks, find.which.group)
     breaks.by.group = list()
@@ -803,7 +805,7 @@ get.augmented.X = function(X,breaks,return.groups = F,TT,J,group.inds){
 ##' matrix X) The variable names 00.orig are to emphasize that while the f0 may
 ##' be from solving a ridge-penalty-added problem, what should be provided are
 ##' the original, non-augmented versions
-getbic.regression = function(y0.orig, f0, sigma, maxsteps,X.orig, ginvX.orig, D.orig,rtol=1E-7){
+getbic.regression <- function(y0.orig, f0, sigma, maxsteps,X.orig, ginvX.orig, D.orig,rtol=1E-7){
 
   ## Setup empty IC vector / problem dimensions / pseudoinverse.
   bic = numeric(maxsteps+1)
@@ -919,7 +921,7 @@ getbic.regression = function(y0.orig, f0, sigma, maxsteps,X.orig, ginvX.orig, D.
 ##' @param ebic.fac Correction factor in EBIC by Chen & Chen (2008)
 ##' @param verbose Whether to be loud while doing stuff.
 ##' @export
-get.modelinfo = function(obj, consec=2, sigma, maxsteps=length(obj$action),
+get.modelinfo <- function(obj, consec=2, sigma, maxsteps=length(obj$action),
                          stoprule = c('bic','ebic', 'aic'), ebic.fac=.5,
                          verbose=F){
 
@@ -1055,7 +1057,7 @@ get.modelinfo = function(obj, consec=2, sigma, maxsteps=length(obj$action),
 ## Calculates BIC for _any_ D for the signal approximator case df.fun is a
 ## function that returns the degrees of freedom of fit of yhat =
 ## Proj_{null(D_B)} y
-get.ic = function(obj, y0, sigma, maxsteps, D, type = c('bic','ebic', 'aic'), ebic.fac=.5){
+get.ic <- function(obj, y0, sigma, maxsteps, D, type = c('bic','ebic', 'aic'), ebic.fac=.5){
 
   # Setup empty IC vector and regressor matrix H, for k'th order trend filtering problems
   ic = RSS = pen = numeric(maxsteps+1)
@@ -1109,14 +1111,14 @@ get.ic = function(obj, y0, sigma, maxsteps, D, type = c('bic','ebic', 'aic'), eb
 
 # Returns a sequence of +1 and -1 for sequential incr and decrements in a vector
 # assume first step always dips; _almost_ always true
-getorder = function(bic){
+getorder <- function(bic){
   return(c(NA,sign(bic[2:(length(bic))] - bic[1:(length(bic)-1)])))
 }
 
 
 ##' Locates first point of .(consec) rises in IC path
 ##' @export
-which.rise = function(icvec, consec = 2, direction=c("forward","backward")){
+which.rise <- function(icvec, consec = 2, direction=c("forward","backward")){
 
   direction = match.arg(direction)
   if(direction != "forward") stop("That direction IC selection is not coded yet.")
@@ -1137,7 +1139,7 @@ which.rise = function(icvec, consec = 2, direction=c("forward","backward")){
 ##'                            adjacent edges) and produces a (sparse) D matrix
 ##'                            for usage in the generalized lasso
 ##' @import Matrix
-getDmat.from.adjmat = function(adjmat, sparseMatrix=FALSE){
+getDmat.from.adjmat <- function(adjmat, sparseMatrix=FALSE){
   n = ncol(adjmat)
   if(sparseMatrix){
     Dmat = Matrix(0,nrow=n^2,ncol=n, sparse=TRUE)
@@ -1162,7 +1164,7 @@ getDmat.from.adjmat = function(adjmat, sparseMatrix=FALSE){
 ##' Takes in a D matrix used in the generalized lasso and creates an adjacency
 ##' matrix (a matrix with zero entries in non-adjacent edges and 1 in adjacent
 ##' edges).
-getadjmat.from.Dmat = function(Dmat){
+getadjmat.from.Dmat <- function(Dmat){
 
   Dmat = rbind(Dmat)
   n = ncol(Dmat)
@@ -1178,7 +1180,7 @@ getadjmat.from.Dmat = function(Dmat){
 
 
 ## takes in actions from a dualpathsvd(2) object and returns the boundary set at that step
-getB.from.actions = function(actions){
+getB.from.actions <- function(actions){
   B = actions
   to.delete = c()
   for(ww in 1:length(actions)){
@@ -1195,7 +1197,7 @@ getB.from.actions = function(actions){
 
 ##'  Wrapper for getmodelinfo.graph() to get bic scores only Returns BIC for
 ##'  steps 0~maxsteps
-getbic.graph = function(obj,y0, sigma, maxsteps, Dmat, stoptime=F, dual = T){
+getbic.graph <- function(obj,y0, sigma, maxsteps, Dmat, stoptime=F, dual = T){
   a = getmodelinfo.graph(obj,y0, sigma, maxsteps, Dmat, stoptime=F)
   if(dual){ return(a$bic) } else { return(a$bic.primal)}
 }
@@ -1203,7 +1205,7 @@ getbic.graph = function(obj,y0, sigma, maxsteps, Dmat, stoptime=F, dual = T){
 ##'  Function to create things related to model selection, for the graph case
 ##'  Input : path object, y0, initial graph, maximum steps to take, Dmat,
 ##'  cluster size, cluster # Output: 6 p values for each possible segment test.
-getmodelinfo.graph = function(obj,y0, sigma, maxsteps, Dmat, stoptime=F){
+getmodelinfo.graph <- function(obj,y0, sigma, maxsteps, Dmat, stoptime=F){
 
   mygraph = graph_from_adjacency_matrix(getadjmat.from.Dmat(Dmat), mode="undirected")
   n = length(y0)
@@ -1318,7 +1320,7 @@ getmodelinfo.graph = function(obj,y0, sigma, maxsteps, Dmat, stoptime=F){
 ##' Helper function to get trend filtering contrast (for 'final model'
 ##' inference). Takes in |pathobject$action| and test time and stop time, and
 ##' returns the properly adjusted trendfiltering contrast
-get.tf.contrast = function(action, y, test.time, stop.time, order=1){
+get.tf.contrast <- function(action, y, test.time, stop.time, order=1){
     H = getH.trendfilter(n,order)
     test.coord = action[test.time] + 1
     adj.coord = c(1:(order+1), (1+states[[stop.time]]))
@@ -1338,7 +1340,7 @@ get.tf.contrast = function(action, y, test.time, stop.time, order=1){
 ##' @param k algorithm's step to use
 ##' @param klater later step to condition on
 ##' @param n length of response (= length of dvec )
-makesegment  = function(breaks, k, klater, n){
+makesegment  <- function(breaks, k, klater, n){
 
 if(length(breaks)<k) stop("not enough breaks!! k > number of breaks")
   K <- breaks[k] # is the index of the jump selected at step k
@@ -1374,7 +1376,7 @@ if(length(breaks)<k) stop("not enough breaks!! k > number of breaks")
 ##' @examples
 ##' step.sign.plot(signs = c(+1,-1), final.model = c(20,36), n=60)
 ##' @export
-step_sign_plot_inner = function(signs, final.model, n){
+step_sign_plot_inner <- function(signs, final.model, n){
     signs = signs[order(final.model)]
     signs = c(-signs[1], signs)
     cumul.signs = cumsum(signs)
@@ -1399,3 +1401,9 @@ step_sign_plot_inner = function(signs, final.model, n){
     return(sign0)
 }
 
+
+##' Helper for tests; checks of \code{vec} is uniform.
+##' @export
+expect_uniform <- function(vec){
+    expect_equal(ks.test(unlist(vec),punif)$p.value<0.05, FALSE)
+}
