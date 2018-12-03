@@ -34,6 +34,7 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
 
   # Error checking
   stopifnot(ncol(D) == length(y))
+    stopifnot(maxsteps>=1)
 
   nk = 0
   nkstep = 0

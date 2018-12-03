@@ -35,6 +35,33 @@ print.genlassoinf <- function(mypath){
     ## Dmat = mypath$D
     ## print(Dmat[1:(min(nrow(Dmat),5)), 1:(min(ncol(Dmat),5))])
 }
+## is.path <- function(someobj){ inherits(someobj, "path") }
+
+## ##' Form generic
+## print <- function(x,...) UseMethod("print")
+
+## ##' Plotting function for "path" class
+## ##' @export
+## print.path <- function(mypath){
+
+##     ## Print the directions and signs
+##     cat("The selection sequence is: ", fill=TRUE)
+##     cat(mypath$action, fill=TRUE)
+
+##     ## Print the final variable set
+##     cat("The final variables selected after step ", mypath$pathobjs$k, "are", fill=TRUE)
+##     mytable = data.frame(matrix(nrow=1,ncol=length(mypath$lambda)+1))
+##     colnames(mytable) = c("lambda=", round(mypath$lambda,2))
+##     rownames(mytable) = ""
+##     mytable[1,2:ncol(mytable)] = getB.from.actions(mypath$action)
+##     mytable[1,1] = "knots="
+##     print(mytable)
+
+##     ## Print the D matrix used
+##     cat("A glimpse of the D matrix is", fill=TRUE)
+##     Dmat = mypath$D
+##     print(Dmat[1:(min(nrow(Dmat),5)), 1:(min(ncol(Dmat),5))])
+## }
 
 ##' Form generic
 step_sign_plot <- function(x,...) UseMethod("step_sign_plot")
