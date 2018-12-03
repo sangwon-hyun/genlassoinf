@@ -119,6 +119,13 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
     lams = lambda
   }
 
+    ## Temporary!!!
+    crits.list = list()
+    crits = uhat
+    names(crits) = Seq(1,m) ## not generalizable
+    crits.list[[1]] = crits
+    ## End of temporary
+
   tryCatch({
     while (k<=maxsteps && lams[k-1]>=minlam) {
 
@@ -154,6 +161,12 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
         shits = Sign(a)
         shits.list[[k]] = shits ## temporary addition.
         hits = a/(b+shits);
+
+        ## Temporary!!!
+        crits = a/(b+shits)
+        names(crits) = I
+        crits.list[[k]] = crits
+        ### End of temporary
 
 
         # Make sure none of the hitting times are larger
@@ -444,7 +457,8 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
 
     beta <-  apply(t(D)%*%u,2,function(column){y-column})
     states = get.states(action)
-    cp = abs(action)
+    ## cp = abs(action) ## This was wrong!!
+    cp = states[[length(states)]]
     cp.sign = s#sign(action)
 
     obj = list(lambda=lams, beta=beta, fit=beta, hit=h, df=df, y=y, u=u, s=s, ss=ss,
@@ -454,6 +468,7 @@ dualpathSvd2 <- function(y, D, approx=FALSE, maxsteps=2000, minlam=0,
                Gobj.naive=list(G=G[1:(nk[length(nk)]),],u=rep(0,nk[length(nk)])),
                Gobj.stoprule = NULL,
                maxsteps=maxsteps,
+               crits.list=crits.list,## temporary!!!
                shits.list=shits.list)
     class(obj) = c("genlassoinf", "list")
     return(obj)
@@ -501,7 +516,7 @@ stop_path.genlassoinf <- function(obj, sigma, stoprule = "bic", consec = 2){
     if(stoptime<=0){
         warning("Stoptime is zero!")
         locs.bic = c()
-        obj$Gobj.stoprule =   list(G=rbind(rep(NA,length(obj$y)))[-1,], u=c())
+        obj$Gobj.stoprule = list(G=rbind(rep(NA,length(obj$y)))[-1,], u=c())
         obj$stoppedmodel = obj$states[[stoptime+1]]
     } else {
         locs.bic = obj$pathobj$B[1:stoptime]
@@ -526,4 +541,5 @@ stop_path.genlassoinf <- function(obj, sigma, stoprule = "bic", consec = 2){
     class(obj) <- "genlassoinf"
     return(obj)
 }
+
 
