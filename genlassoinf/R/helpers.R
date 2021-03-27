@@ -451,6 +451,7 @@ LS <- function(y, X, out = c("fitted_y", "fitted_coeff")){
 }
 
 
+##' @export
 dual1d_Dmat <- function(m){
   D = matrix(0, nrow = m-1, ncol = m)
   for(ii in 1:(m-1)){

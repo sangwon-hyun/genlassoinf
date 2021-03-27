@@ -18,7 +18,7 @@
 ##' @param maxsteps maximum number of steps of the algorithms to run.
 ##' @param rtol Tolerance for solving linear system using svdsolve(), defaults
 ##'     to 1e-7.
-##' @param ctol Tolerance for G&%y ~= c; defaults to 1e-7
+##' @param ctol Tolerance for Gy ~= c; defaults to 1e-7
 ##' @param btol Tolerance for leaving times, precision issue, defaults to 1e-10
 ##' @param cdtol Tolerance for cdtol; defaults to 1e-4
 ##' @param invalid temporary addition; getting rid of sign conditioning.

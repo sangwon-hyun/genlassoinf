@@ -310,7 +310,7 @@ mydiag=function(x){
 ## Added from binSegInf R package, in https://github.com/linnylin92/binSegInf,
 ## as of Sep 6th, because the package is not publicly available (yet)
 #' TG confidence interval from post-selection inference. Assumes that one-sided
-#' test is in the right-sided direction i.e. H_0: v^T\mu>0.
+#' test is in the right-sided direction i.e. \eqn{H_0: v^T\mu>0.}
 #'
 #' @param y numeric vector
 #' @param polyhedra polyhedra object, or just a list that contains a numeric

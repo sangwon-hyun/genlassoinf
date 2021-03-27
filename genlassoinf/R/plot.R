@@ -1,5 +1,7 @@
 ##' Takes in the signs |signs| and the locations |final.model|
-step.sign.plot = function(signs, final.model,n){
+##'
+##' @export
+step.sign.plot <- function(signs, final.model, n){
     signs = signs[order(final.model)]
     signs = c(-signs[1], signs)
     cumul.signs = cumsum(signs)

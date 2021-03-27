@@ -80,6 +80,8 @@ make.v.tf.fp <- function(test.knot, adj.knot, test.knot.sign, D){
 ##' @param y data vector (same as the one used to produce path)
 ##' @param k algorithm's step to use.
 ##' @param klater later step to condition on
+##'
+##' @export
 get_v_1dfusedlasso <- function(obj, y=NULL, k, klater = k,
                                type =c("spike","segment"), n,
                                scaletype = c("none","segmentmean", "unitnorm")){

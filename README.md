@@ -11,8 +11,6 @@ or in R,
 devtools::install_github("robohyun66/genlassoinf", subdir="genlassoinf")
 ~~~~
 
-## Tests
-All tests/examples are shown in /examples
 
 ## Contributors
 Sangwon Hyun (Justin), Max G'Sell, Ryan Tibshirani
